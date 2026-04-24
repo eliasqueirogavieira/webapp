@@ -18,12 +18,34 @@ const parser = new XMLParser({
 });
 
 async function fetchXml(url: string, attempts = 6): Promise<unknown> {
+  // BGG now requires a registered application token for all XML API traffic.
+  // Get one at https://boardgamegeek.com/applications (approval can take up to a week).
+  const token = process.env.BGG_AUTH_TOKEN;
+  const headers: Record<string, string> = {
+    "User-Agent":
+      "collection-tracker/0.1 (https://github.com/eliasqueirogavieira/webapp)",
+    Accept: "application/xml, text/xml, */*",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   for (let i = 0; i < attempts; i++) {
-    const res = await fetch(url, { headers: { accept: "application/xml" } });
+    const res = await fetch(url, { headers });
     // BGG returns 202 while it queues the response; wait and retry.
     if (res.status === 202) {
       await sleep(1500 * (i + 1));
       continue;
+    }
+    // 429 = rate limited; back off and retry.
+    if (res.status === 429) {
+      await sleep(5000 * (i + 1));
+      continue;
+    }
+    if (res.status === 401) {
+      const msg = token
+        ? `BGG 401: token rejected. Check BGG_AUTH_TOKEN.`
+        : `BGG 401: this endpoint now requires a registered application token. ` +
+          `Apply at https://boardgamegeek.com/applications and set BGG_AUTH_TOKEN in .env.local.`;
+      throw new Error(msg);
     }
     if (!res.ok) throw new Error(`BGG ${res.status}: ${url}`);
     const text = await res.text();

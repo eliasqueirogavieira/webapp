@@ -46,6 +46,16 @@ async function loadDetail(id: string): Promise<View | null> {
   if (isPreviewMode()) {
     const d: VideogameDetail | null = getPreviewVideogame(id);
     if (!d) return null;
+    const externals: { source: string; url: string | null }[] = [];
+    if (d.grouvee_url) externals.push({ source: "grouvee", url: d.grouvee_url });
+    // IGDB's site indexes by slug, not numeric id, so we link to a title search
+    // (works without an extra API call to fetch the slug).
+    if (d.igdb_id) {
+      externals.push({
+        source: "igdb",
+        url: `https://www.igdb.com/search?q=${encodeURIComponent(d.title)}`,
+      });
+    }
     return {
       title: d.title,
       year: d.year,
@@ -57,9 +67,7 @@ async function loadDetail(id: string): Promise<View | null> {
       developers: d.developers,
       publishers: d.publishers,
       franchises: d.franchises,
-      externals: d.igdb_id
-        ? [{ source: "igdb", url: `https://www.igdb.com/games/${d.igdb_id}` }]
-        : [],
+      externals,
     };
   }
 

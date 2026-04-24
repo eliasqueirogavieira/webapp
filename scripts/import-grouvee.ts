@@ -6,7 +6,7 @@
  * Usage:
  *   npm run import:grouvee
  */
-import "dotenv/config";
+import "./_load-env";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import Papa from "papaparse";

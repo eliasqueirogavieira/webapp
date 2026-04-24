@@ -13,6 +13,19 @@ import Papa from "papaparse";
 import { bggRatingToTen, grouveeRatingToTen } from "./ratings";
 import type { ItemCardData } from "@/components/ItemCard";
 
+// Covers produced by `npm run enrich:preview`, keyed by preview item id (e.g. "bgg-224517").
+// Read fresh each call — the JSON gets rewritten by the enrichment script while the dev
+// server is running, and stale in-memory caches turned out to mask new covers.
+function loadCovers(): Record<string, string> {
+  const path = resolve(process.cwd(), "data/preview-covers.json");
+  if (!existsSync(path)) return {};
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
 export function isPreviewMode() {
   return process.env.PREVIEW_MODE === "1";
 }
@@ -39,6 +52,7 @@ type GrouveeRow = {
   rating: string;
   release_date: string;
   igdb_id: string;
+  url: string;
   platforms: string;
   genres: string;
   developers: string;
@@ -92,15 +106,16 @@ function statusFromShelves(raw: string | undefined): string | null {
 
 // --- Board games -----------------------------------------------------------
 
-let cachedBgItems: ItemCardData[] | null = null;
-let cachedBgDetails: Map<string, BoardgameDetail> | null = null;
+// CSV parsing is the expensive part — cache the raw rows, but rebuild the
+// ItemCardData objects every call so they pick up freshly-written covers.
+let cachedBgRows: BggRow[] | null = null;
 
 export type BoardgameDetail = {
   id: string;
   title: string;
   year: number | null;
   rating: number | null;
-  cover_url: null;
+  cover_url: string | null;
   play_count: number;
   status: string | null;
   notes: null;
@@ -114,70 +129,77 @@ export type BoardgameDetail = {
   bgg_id: string;
 };
 
-function loadBoardgames() {
-  if (cachedBgItems && cachedBgDetails) return;
+function loadBoardgameRows(): BggRow[] {
+  if (cachedBgRows) return cachedBgRows;
   const path = resolve(process.cwd(), "data/collection.csv");
-  const rows = safeParseCsv<BggRow>(path).filter((r) => r.objectid && r.objectname);
-  const items: ItemCardData[] = [];
-  const details = new Map<string, BoardgameDetail>();
-  for (const r of rows) {
-    const id = `bgg-${r.objectid}`;
-    const rating = bggRatingToTen(r.rating);
-    const year = parseYear(r.yearpublished);
-    items.push({
-      id,
-      category: "boardgame",
-      title: r.objectname,
-      year,
-      cover_url: null,
-      rating,
-    });
-    details.set(id, {
-      id,
-      title: r.objectname,
-      year,
-      rating,
-      cover_url: null,
-      play_count: Number(r.numplays) || 0,
-      status: r.own === "1" ? "owned" : null,
-      notes: null,
-      min_players: parseIntMaybe(r.minplayers),
-      max_players: parseIntMaybe(r.maxplayers),
-      playing_time_min: parseIntMaybe(r.playingtime),
-      weight: parseFloatMaybe(r.avgweight) ?? parseFloatMaybe(r.weight),
-      bgg_rank: parseIntMaybe(r.rank),
-      mechanics: [],
-      categories: [],
-      bgg_id: r.objectid,
-    });
-  }
-  cachedBgItems = items;
-  cachedBgDetails = details;
+  cachedBgRows = safeParseCsv<BggRow>(path).filter(
+    (r) => r.objectid && r.objectname,
+  );
+  return cachedBgRows;
+}
+
+function buildBoardgameDetail(r: BggRow, covers: Record<string, string>): BoardgameDetail {
+  const id = `bgg-${r.objectid}`;
+  const rating = bggRatingToTen(r.rating);
+  const year = parseYear(r.yearpublished);
+  const cover_url = covers[id] ?? null;
+  return {
+    id,
+    title: r.objectname,
+    year,
+    rating,
+    cover_url,
+    play_count: Number(r.numplays) || 0,
+    status: r.own === "1" ? "owned" : null,
+    notes: null,
+    min_players: parseIntMaybe(r.minplayers),
+    max_players: parseIntMaybe(r.maxplayers),
+    playing_time_min: parseIntMaybe(r.playingtime),
+    weight: parseFloatMaybe(r.avgweight) ?? parseFloatMaybe(r.weight),
+    bgg_rank: parseIntMaybe(r.rank),
+    mechanics: [],
+    categories: [],
+    bgg_id: r.objectid,
+  };
 }
 
 export function getPreviewBoardgames(): ItemCardData[] {
-  loadBoardgames();
-  return [...cachedBgItems!].sort(
+  const rows = loadBoardgameRows();
+  const covers = loadCovers();
+  const items: ItemCardData[] = rows.map((r) => {
+    const id = `bgg-${r.objectid}`;
+    return {
+      id,
+      category: "boardgame",
+      title: r.objectname,
+      year: parseYear(r.yearpublished),
+      cover_url: covers[id] ?? null,
+      rating: bggRatingToTen(r.rating),
+    };
+  });
+  return items.sort(
     (a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.title.localeCompare(b.title),
   );
 }
 
 export function getPreviewBoardgame(id: string): BoardgameDetail | null {
-  loadBoardgames();
-  return cachedBgDetails!.get(id) ?? null;
+  const rows = loadBoardgameRows();
+  const covers = loadCovers();
+  const row = rows.find((r) => `bgg-${r.objectid}` === id);
+  if (!row) return null;
+  return buildBoardgameDetail(row, covers);
 }
 
 // --- Video games -----------------------------------------------------------
 
-let cachedVgItems: ItemCardData[] | null = null;
-let cachedVgDetails: Map<string, VideogameDetail> | null = null;
+let cachedVgRows: GrouveeRow[] | null = null;
 
 export type VideogameDetail = {
   id: string;
   title: string;
   year: number | null;
   rating: number | null;
-  cover_url: null;
+  cover_url: string | null;
   status: string | null;
   platforms: string[];
   genres: string[];
@@ -186,6 +208,7 @@ export type VideogameDetail = {
   franchises: string[];
   release_date: string | null;
   igdb_id: string | null;
+  grouvee_url: string | null;
 };
 
 function findGrouveeCsv(): string | null {
@@ -198,59 +221,62 @@ function findGrouveeCsv(): string | null {
   return file ? resolve(dir, file) : null;
 }
 
-function loadVideogames() {
-  if (cachedVgItems && cachedVgDetails) return;
+function loadVideogameRows(): GrouveeRow[] {
+  if (cachedVgRows) return cachedVgRows;
   const path = findGrouveeCsv();
   if (!path) {
-    cachedVgItems = [];
-    cachedVgDetails = new Map();
-    return;
+    cachedVgRows = [];
+    return cachedVgRows;
   }
-  const rows = safeParseCsv<GrouveeRow>(path).filter((r) => r.id && r.name);
-  const items: ItemCardData[] = [];
-  const details = new Map<string, VideogameDetail>();
-  for (const r of rows) {
-    const id = `grouvee-${r.id}`;
-    const rating = grouveeRatingToTen(r.rating);
-    const year = parseYear(r.release_date);
-    items.push({
-      id,
-      category: "videogame",
-      title: r.name,
-      year,
-      cover_url: null,
-      rating,
-    });
-    details.set(id, {
-      id,
-      title: r.name,
-      year,
-      rating,
-      cover_url: null,
-      status: statusFromShelves(r.shelves),
-      platforms: namesFromJsonMap(r.platforms),
-      genres: namesFromJsonMap(r.genres),
-      developers: namesFromJsonMap(r.developers),
-      publishers: namesFromJsonMap(r.publishers),
-      franchises: namesFromJsonMap(r.franchises),
-      release_date: r.release_date || null,
-      igdb_id: r.igdb_id || null,
-    });
-  }
-  cachedVgItems = items;
-  cachedVgDetails = details;
+  cachedVgRows = safeParseCsv<GrouveeRow>(path).filter((r) => r.id && r.name);
+  return cachedVgRows;
+}
+
+function buildVideogameDetail(r: GrouveeRow, covers: Record<string, string>): VideogameDetail {
+  const id = `grouvee-${r.id}`;
+  return {
+    id,
+    title: r.name,
+    year: parseYear(r.release_date),
+    rating: grouveeRatingToTen(r.rating),
+    cover_url: covers[id] ?? null,
+    status: statusFromShelves(r.shelves),
+    platforms: namesFromJsonMap(r.platforms),
+    genres: namesFromJsonMap(r.genres),
+    developers: namesFromJsonMap(r.developers),
+    publishers: namesFromJsonMap(r.publishers),
+    franchises: namesFromJsonMap(r.franchises),
+    release_date: r.release_date || null,
+    igdb_id: r.igdb_id || null,
+    grouvee_url: r.url || null,
+  };
 }
 
 export function getPreviewVideogames(): ItemCardData[] {
-  loadVideogames();
-  return [...cachedVgItems!].sort(
+  const rows = loadVideogameRows();
+  const covers = loadCovers();
+  const items: ItemCardData[] = rows.map((r) => {
+    const id = `grouvee-${r.id}`;
+    return {
+      id,
+      category: "videogame",
+      title: r.name,
+      year: parseYear(r.release_date),
+      cover_url: covers[id] ?? null,
+      rating: grouveeRatingToTen(r.rating),
+    };
+  });
+  return items.sort(
     (a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.title.localeCompare(b.title),
   );
 }
 
 export function getPreviewVideogame(id: string): VideogameDetail | null {
-  loadVideogames();
-  return cachedVgDetails!.get(id) ?? null;
+  const rows = loadVideogameRows();
+  const covers = loadCovers();
+  const row = rows.find((r) => `grouvee-${r.id}` === id);
+  if (!row) return null;
+  return buildVideogameDetail(row, covers);
 }
 
 // --- Combined / home-page helpers -----------------------------------------

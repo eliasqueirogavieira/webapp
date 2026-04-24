@@ -6,7 +6,7 @@
  * Usage:
  *   npm run import:bgg
  */
-import "dotenv/config";
+import "./_load-env";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import Papa from "papaparse";
