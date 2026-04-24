@@ -1,65 +1,116 @@
-import Image from "next/image";
+import { createClient } from "@/lib/supabase/server";
+import { BentoTile } from "@/components/BentoTile";
+import { ItemCard, type ItemCardData } from "@/components/ItemCard";
+import { RatingBadge } from "@/components/RatingBadge";
+import { getPreviewStats, isPreviewMode } from "@/lib/preview";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+type HomeData = {
+  bgCount: number;
+  vgCount: number;
+  bgAvg: number | null;
+  vgAvg: number | null;
+  topRated: ItemCardData[];
+  recent: ItemCardData[];
+};
+
+async function loadData(): Promise<HomeData> {
+  if (isPreviewMode()) return getPreviewStats();
+
+  const supabase = await createClient();
+  const [{ data: topRated }, { data: recent }, bgCount, vgCount, bgAvg, vgAvg] =
+    await Promise.all([
+      supabase
+        .from("items")
+        .select("id, category, title, year, cover_url, rating")
+        .not("rating", "is", null)
+        .order("rating", { ascending: false })
+        .limit(6)
+        .returns<ItemCardData[]>(),
+      supabase
+        .from("items")
+        .select("id, category, title, year, cover_url, rating")
+        .order("created_at", { ascending: false })
+        .limit(6)
+        .returns<ItemCardData[]>(),
+      supabase.from("items").select("id", { count: "exact", head: true }).eq("category", "boardgame"),
+      supabase.from("items").select("id", { count: "exact", head: true }).eq("category", "videogame"),
+      supabase.from("items").select("rating").eq("category", "boardgame").not("rating", "is", null),
+      supabase.from("items").select("rating").eq("category", "videogame").not("rating", "is", null),
+    ]);
+  const avg = (rows: Array<{ rating: number | null }> | null) => {
+    if (!rows || rows.length === 0) return null;
+    const nums = rows.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n));
+    return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+  };
+  return {
+    bgCount: bgCount.count ?? 0,
+    vgCount: vgCount.count ?? 0,
+    bgAvg: avg(bgAvg.data),
+    vgAvg: avg(vgAvg.data),
+    topRated: topRated ?? [],
+    recent: recent ?? [],
+  };
+}
+
+export default async function Home() {
+  const { bgCount, vgCount, bgAvg, vgAvg, topRated, recent } = await loadData();
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="flex flex-col gap-8">
+      <header className="flex flex-col gap-2">
+        <h1 className="text-3xl font-semibold tracking-tight">Collection</h1>
+        <p className="text-[var(--muted)]">
+          Board games and video games — played, rated, remembered.
+          {isPreviewMode() && (
+            <span className="ml-2 rounded-md bg-[var(--surface)] px-2 py-0.5 text-xs text-[var(--accent)] ring-1 ring-[var(--border)]">
+              preview mode (reading from CSVs)
+            </span>
+          )}
+        </p>
+      </header>
+
+      <div className="grid grid-cols-6 gap-4">
+        <BentoTile title="Board games" span="sm">
+          <div className="flex items-baseline gap-3">
+            <div className="text-3xl font-semibold tabular-nums">{bgCount}</div>
+            <div className="text-xs text-[var(--muted)]">
+              avg <RatingBadge rating={bgAvg} size="sm" />
+            </div>
+          </div>
+        </BentoTile>
+
+        <BentoTile title="Video games" span="sm">
+          <div className="flex items-baseline gap-3">
+            <div className="text-3xl font-semibold tabular-nums">{vgCount}</div>
+            <div className="text-xs text-[var(--muted)]">
+              avg <RatingBadge rating={vgAvg} size="sm" />
+            </div>
+          </div>
+        </BentoTile>
+
+        <BentoTile title="Total" span="sm">
+          <div className="text-3xl font-semibold tabular-nums">
+            {bgCount + vgCount}
+          </div>
+        </BentoTile>
+
+        <BentoTile title="Top rated" subtitle="across everything" span="xl">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {topRated.map((i) => (
+              <ItemCard key={i.id} item={i} />
+            ))}
+          </div>
+        </BentoTile>
+
+        <BentoTile title="Recently added" span="xl">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {recent.map((i) => (
+              <ItemCard key={i.id} item={i} />
+            ))}
+          </div>
+        </BentoTile>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,49 @@
+- generic [active] [ref=e1]:
+  - complementary [ref=e2]:
+    - link "collection." [ref=e4] [cursor=pointer]:
+      - /url: /
+    - navigation [ref=e5]:
+      - link "Home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e7]
+        - text: Home
+      - link "Board games" [ref=e10] [cursor=pointer]:
+        - /url: /boardgames
+        - img [ref=e11]
+        - text: Board games
+      - link "Video games" [ref=e13] [cursor=pointer]:
+        - /url: /videogames
+        - img [ref=e14]
+        - text: Video games
+    - link "Sign in" [ref=e17] [cursor=pointer]:
+      - /url: /login
+      - img [ref=e18]
+      - text: Sign in
+  - main [ref=e21]:
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - heading "Collection" [level=1] [ref=e25]
+        - paragraph [ref=e26]: Board games and video games — played, rated, remembered.
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - heading "Board games" [level=2] [ref=e30]
+          - generic [ref=e31]:
+            - generic [ref=e32]: "0"
+            - generic [ref=e33]:
+              - text: avg
+              - generic [ref=e34]: —
+        - generic [ref=e35]:
+          - heading "Video games" [level=2] [ref=e37]
+          - generic [ref=e38]:
+            - generic [ref=e39]: "0"
+            - generic [ref=e40]:
+              - text: avg
+              - generic [ref=e41]: —
+        - generic [ref=e42]:
+          - heading "Total" [level=2] [ref=e44]
+          - generic [ref=e45]: "0"
+        - generic [ref=e47]:
+          - heading "Top rated" [level=2] [ref=e48]
+          - generic [ref=e49]: across everything
+        - heading "Recently added" [level=2] [ref=e52]
+  - alert [ref=e53]
