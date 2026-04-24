@@ -27,7 +27,8 @@ type BggRow = {
   minplayers: string;
   maxplayers: string;
   playingtime: string;
-  weight: string;
+  weight: string;      // user's personal weight (often 0)
+  avgweight: string;   // BGG's crowdsourced weight — prefer this for display
   rank: string;
   own: string;
 };
@@ -120,7 +121,7 @@ function loadBoardgames() {
   const items: ItemCardData[] = [];
   const details = new Map<string, BoardgameDetail>();
   for (const r of rows) {
-    const id = `bgg:${r.objectid}`;
+    const id = `bgg-${r.objectid}`;
     const rating = bggRatingToTen(r.rating);
     const year = parseYear(r.yearpublished);
     items.push({
@@ -143,7 +144,7 @@ function loadBoardgames() {
       min_players: parseIntMaybe(r.minplayers),
       max_players: parseIntMaybe(r.maxplayers),
       playing_time_min: parseIntMaybe(r.playingtime),
-      weight: parseFloatMaybe(r.weight),
+      weight: parseFloatMaybe(r.avgweight) ?? parseFloatMaybe(r.weight),
       bgg_rank: parseIntMaybe(r.rank),
       mechanics: [],
       categories: [],
@@ -209,7 +210,7 @@ function loadVideogames() {
   const items: ItemCardData[] = [];
   const details = new Map<string, VideogameDetail>();
   for (const r of rows) {
-    const id = `grouvee:${r.id}`;
+    const id = `grouvee-${r.id}`;
     const rating = grouveeRatingToTen(r.rating);
     const year = parseYear(r.release_date);
     items.push({

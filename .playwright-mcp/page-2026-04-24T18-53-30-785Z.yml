@@ -1,0 +1,612 @@
+- generic [active] [ref=e1]:
+  - complementary [ref=e2]:
+    - link "collection." [ref=e4] [cursor=pointer]:
+      - /url: /
+    - navigation [ref=e5]:
+      - link "Home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e7]
+        - text: Home
+      - link "Board games" [ref=e10] [cursor=pointer]:
+        - /url: /boardgames
+        - img [ref=e11]
+        - text: Board games
+      - link "Video games" [ref=e13] [cursor=pointer]:
+        - /url: /videogames
+        - img [ref=e14]
+        - text: Video games
+    - link "Sign in" [ref=e17] [cursor=pointer]:
+      - /url: /login
+      - img [ref=e18]
+      - text: Sign in
+  - main [ref=e21]:
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - heading "Board games" [level=1] [ref=e25]
+        - paragraph [ref=e26]: 82 games
+      - generic [ref=e27]:
+        - 'link "no cover 10 Twilight Imperium: Fourth Edition 2017" [ref=e28] [cursor=pointer]':
+          - /url: /boardgames/bgg:233078
+          - generic [ref=e29]:
+            - generic [ref=e30]: no cover
+            - generic [ref=e32]: "10"
+          - generic [ref=e33]:
+            - generic [ref=e34]: "Twilight Imperium: Fourth Edition"
+            - generic [ref=e35]: "2017"
+        - link "no cover 9.5 Nemesis 2018" [ref=e36] [cursor=pointer]:
+          - /url: /boardgames/bgg:167355
+          - generic [ref=e37]:
+            - generic [ref=e38]: no cover
+            - generic [ref=e40]: "9.5"
+          - generic [ref=e41]:
+            - generic [ref=e42]: Nemesis
+            - generic [ref=e43]: "2018"
+        - 'link "no cover 9 Dune: Imperium – Uprising 2023" [ref=e44] [cursor=pointer]':
+          - /url: /boardgames/bgg:397598
+          - generic [ref=e45]:
+            - generic [ref=e46]: no cover
+            - generic [ref=e48]: "9"
+          - generic [ref=e49]:
+            - generic [ref=e50]: "Dune: Imperium – Uprising"
+            - generic [ref=e51]: "2023"
+        - link "no cover 9 Gaia Project 2017" [ref=e52] [cursor=pointer]:
+          - /url: /boardgames/bgg:220308
+          - generic [ref=e53]:
+            - generic [ref=e54]: no cover
+            - generic [ref=e56]: "9"
+          - generic [ref=e57]:
+            - generic [ref=e58]: Gaia Project
+            - generic [ref=e59]: "2017"
+        - link "no cover 9 Galactic Cruise 2025" [ref=e60] [cursor=pointer]:
+          - /url: /boardgames/bgg:391137
+          - generic [ref=e61]:
+            - generic [ref=e62]: no cover
+            - generic [ref=e64]: "9"
+          - generic [ref=e65]:
+            - generic [ref=e66]: Galactic Cruise
+            - generic [ref=e67]: "2025"
+        - link "no cover 9 Lost Ruins of Arnak 2020" [ref=e68] [cursor=pointer]:
+          - /url: /boardgames/bgg:312484
+          - generic [ref=e69]:
+            - generic [ref=e70]: no cover
+            - generic [ref=e72]: "9"
+          - generic [ref=e73]:
+            - generic [ref=e74]: Lost Ruins of Arnak
+            - generic [ref=e75]: "2020"
+        - 'link "no cover 9 Star Wars: Rebellion 2016" [ref=e76] [cursor=pointer]':
+          - /url: /boardgames/bgg:187645
+          - generic [ref=e77]:
+            - generic [ref=e78]: no cover
+            - generic [ref=e80]: "9"
+          - generic [ref=e81]:
+            - generic [ref=e82]: "Star Wars: Rebellion"
+            - generic [ref=e83]: "2016"
+        - link "no cover 9 Twilight Struggle 2005" [ref=e84] [cursor=pointer]:
+          - /url: /boardgames/bgg:12333
+          - generic [ref=e85]:
+            - generic [ref=e86]: no cover
+            - generic [ref=e88]: "9"
+          - generic [ref=e89]:
+            - generic [ref=e90]: Twilight Struggle
+            - generic [ref=e91]: "2005"
+        - link "no cover 8.5 Andromeda's Edge 2024" [ref=e92] [cursor=pointer]:
+          - /url: /boardgames/bgg:358661
+          - generic [ref=e93]:
+            - generic [ref=e94]: no cover
+            - generic [ref=e96]: "8.5"
+          - generic [ref=e97]:
+            - generic [ref=e98]: Andromeda's Edge
+            - generic [ref=e99]: "2024"
+        - link "no cover 8.5 Ark Nova 2021" [ref=e100] [cursor=pointer]:
+          - /url: /boardgames/bgg:342942
+          - generic [ref=e101]:
+            - generic [ref=e102]: no cover
+            - generic [ref=e104]: "8.5"
+          - generic [ref=e105]:
+            - generic [ref=e106]: Ark Nova
+            - generic [ref=e107]: "2021"
+        - 'link "no cover 8.5 Brass: Birmingham 2018" [ref=e108] [cursor=pointer]':
+          - /url: /boardgames/bgg:224517
+          - generic [ref=e109]:
+            - generic [ref=e110]: no cover
+            - generic [ref=e112]: "8.5"
+          - generic [ref=e113]:
+            - generic [ref=e114]: "Brass: Birmingham"
+            - generic [ref=e115]: "2018"
+        - link "no cover 8.5 Terraforming Mars 2016" [ref=e116] [cursor=pointer]:
+          - /url: /boardgames/bgg:167791
+          - generic [ref=e117]:
+            - generic [ref=e118]: no cover
+            - generic [ref=e120]: "8.5"
+          - generic [ref=e121]:
+            - generic [ref=e122]: Terraforming Mars
+            - generic [ref=e123]: "2016"
+        - link "no cover 8.5 Wonderland's War 2022" [ref=e124] [cursor=pointer]:
+          - /url: /boardgames/bgg:227935
+          - generic [ref=e125]:
+            - generic [ref=e126]: no cover
+            - generic [ref=e128]: "8.5"
+          - generic [ref=e129]:
+            - generic [ref=e130]: Wonderland's War
+            - generic [ref=e131]: "2022"
+        - link "no cover 8 Critter Kitchen 2025" [ref=e132] [cursor=pointer]:
+          - /url: /boardgames/bgg:393429
+          - generic [ref=e133]:
+            - generic [ref=e134]: no cover
+            - generic [ref=e136]: "8"
+          - generic [ref=e137]:
+            - generic [ref=e138]: Critter Kitchen
+            - generic [ref=e139]: "2025"
+        - link "no cover 8 Decrypto 2018" [ref=e140] [cursor=pointer]:
+          - /url: /boardgames/bgg:225694
+          - generic [ref=e141]:
+            - generic [ref=e142]: no cover
+            - generic [ref=e144]: "8"
+          - generic [ref=e145]:
+            - generic [ref=e146]: Decrypto
+            - generic [ref=e147]: "2018"
+        - 'link "no cover 8 Endeavor: Deep Sea 2024" [ref=e148] [cursor=pointer]':
+          - /url: /boardgames/bgg:367966
+          - generic [ref=e149]:
+            - generic [ref=e150]: no cover
+            - generic [ref=e152]: "8"
+          - generic [ref=e153]:
+            - generic [ref=e154]: "Endeavor: Deep Sea"
+            - generic [ref=e155]: "2024"
+        - 'link "no cover 8 Ethnos: 2nd Edition 2025" [ref=e156] [cursor=pointer]':
+          - /url: /boardgames/bgg:432527
+          - generic [ref=e157]:
+            - generic [ref=e158]: no cover
+            - generic [ref=e160]: "8"
+          - generic [ref=e161]:
+            - generic [ref=e162]: "Ethnos: 2nd Edition"
+            - generic [ref=e163]: "2025"
+        - link "no cover 8 Everdell 2018" [ref=e164] [cursor=pointer]:
+          - /url: /boardgames/bgg:199792
+          - generic [ref=e165]:
+            - generic [ref=e166]: no cover
+            - generic [ref=e168]: "8"
+          - generic [ref=e169]:
+            - generic [ref=e170]: Everdell
+            - generic [ref=e171]: "2018"
+        - link "no cover 8 Harmonies 2024" [ref=e172] [cursor=pointer]:
+          - /url: /boardgames/bgg:414317
+          - generic [ref=e173]:
+            - generic [ref=e174]: no cover
+            - generic [ref=e176]: "8"
+          - generic [ref=e177]:
+            - generic [ref=e178]: Harmonies
+            - generic [ref=e179]: "2024"
+        - link "no cover 8 Root 2018" [ref=e180] [cursor=pointer]:
+          - /url: /boardgames/bgg:237182
+          - generic [ref=e181]:
+            - generic [ref=e182]: no cover
+            - generic [ref=e184]: "8"
+          - generic [ref=e185]:
+            - generic [ref=e186]: Root
+            - generic [ref=e187]: "2018"
+        - link "no cover 8 Splendor Duel 2022" [ref=e188] [cursor=pointer]:
+          - /url: /boardgames/bgg:364073
+          - generic [ref=e189]:
+            - generic [ref=e190]: no cover
+            - generic [ref=e192]: "8"
+          - generic [ref=e193]:
+            - generic [ref=e194]: Splendor Duel
+            - generic [ref=e195]: "2022"
+        - 'link "no cover 8 Terraforming Mars: Hellas & Elysium 2017" [ref=e196] [cursor=pointer]':
+          - /url: /boardgames/bgg:218127
+          - generic [ref=e197]:
+            - generic [ref=e198]: no cover
+            - generic [ref=e200]: "8"
+          - generic [ref=e201]:
+            - generic [ref=e202]: "Terraforming Mars: Hellas & Elysium"
+            - generic [ref=e203]: "2017"
+        - link "no cover 8 Wingspan Asia 2022" [ref=e204] [cursor=pointer]:
+          - /url: /boardgames/bgg:366161
+          - generic [ref=e205]:
+            - generic [ref=e206]: no cover
+            - generic [ref=e208]: "8"
+          - generic [ref=e209]:
+            - generic [ref=e210]: Wingspan Asia
+            - generic [ref=e211]: "2022"
+        - link "no cover 8 Wyrmspan 2024" [ref=e212] [cursor=pointer]:
+          - /url: /boardgames/bgg:410201
+          - generic [ref=e213]:
+            - generic [ref=e214]: no cover
+            - generic [ref=e216]: "8"
+          - generic [ref=e217]:
+            - generic [ref=e218]: Wyrmspan
+            - generic [ref=e219]: "2024"
+        - 'link "no cover 7.5 Arkham Horror: The Card Game 2016" [ref=e220] [cursor=pointer]':
+          - /url: /boardgames/bgg:205637
+          - generic [ref=e221]:
+            - generic [ref=e222]: no cover
+            - generic [ref=e224]: "7.5"
+          - generic [ref=e225]:
+            - generic [ref=e226]: "Arkham Horror: The Card Game"
+            - generic [ref=e227]: "2016"
+        - 'link "no cover 7.5 Fate: Defenders of Grimheim 2025" [ref=e228] [cursor=pointer]':
+          - /url: /boardgames/bgg:399822
+          - generic [ref=e229]:
+            - generic [ref=e230]: no cover
+            - generic [ref=e232]: "7.5"
+          - generic [ref=e233]:
+            - generic [ref=e234]: "Fate: Defenders of Grimheim"
+            - generic [ref=e235]: "2025"
+        - link "no cover 7.5 Sea Salt & Paper 2022" [ref=e236] [cursor=pointer]:
+          - /url: /boardgames/bgg:367220
+          - generic [ref=e237]:
+            - generic [ref=e238]: no cover
+            - generic [ref=e240]: "7.5"
+          - generic [ref=e241]:
+            - generic [ref=e242]: Sea Salt & Paper
+            - generic [ref=e243]: "2022"
+        - link "no cover 7.5 The White Castle Duel 2025" [ref=e244] [cursor=pointer]:
+          - /url: /boardgames/bgg:438936
+          - generic [ref=e245]:
+            - generic [ref=e246]: no cover
+            - generic [ref=e248]: "7.5"
+          - generic [ref=e249]:
+            - generic [ref=e250]: The White Castle Duel
+            - generic [ref=e251]: "2025"
+        - link "no cover 7 7 Wonders 2010" [ref=e252] [cursor=pointer]:
+          - /url: /boardgames/bgg:68448
+          - generic [ref=e253]:
+            - generic [ref=e254]: no cover
+            - generic [ref=e256]: "7"
+          - generic [ref=e257]:
+            - generic [ref=e258]: 7 Wonders
+            - generic [ref=e259]: "2010"
+        - link "no cover 7 7 Wonders Duel 2015" [ref=e260] [cursor=pointer]:
+          - /url: /boardgames/bgg:173346
+          - generic [ref=e261]:
+            - generic [ref=e262]: no cover
+            - generic [ref=e264]: "7"
+          - generic [ref=e265]:
+            - generic [ref=e266]: 7 Wonders Duel
+            - generic [ref=e267]: "2015"
+        - link "no cover 7 Arcs 2024" [ref=e268] [cursor=pointer]:
+          - /url: /boardgames/bgg:359871
+          - generic [ref=e269]:
+            - generic [ref=e270]: no cover
+            - generic [ref=e272]: "7"
+          - generic [ref=e273]:
+            - generic [ref=e274]: Arcs
+            - generic [ref=e275]: "2024"
+        - link "no cover 7 Azul 2017" [ref=e276] [cursor=pointer]:
+          - /url: /boardgames/bgg:230802
+          - generic [ref=e277]:
+            - generic [ref=e278]: no cover
+            - generic [ref=e280]: "7"
+          - generic [ref=e281]:
+            - generic [ref=e282]: Azul
+            - generic [ref=e283]: "2017"
+        - link "no cover 7 Bomb Busters 2024" [ref=e284] [cursor=pointer]:
+          - /url: /boardgames/bgg:413246
+          - generic [ref=e285]:
+            - generic [ref=e286]: no cover
+            - generic [ref=e288]: "7"
+          - generic [ref=e289]:
+            - generic [ref=e290]: Bomb Busters
+            - generic [ref=e291]: "2024"
+        - 'link "no cover 7 Cyberpunk 2077: Gangs of Night City 2023" [ref=e292] [cursor=pointer]':
+          - /url: /boardgames/bgg:352138
+          - generic [ref=e293]:
+            - generic [ref=e294]: no cover
+            - generic [ref=e296]: "7"
+          - generic [ref=e297]:
+            - generic [ref=e298]: "Cyberpunk 2077: Gangs of Night City"
+            - generic [ref=e299]: "2023"
+        - 'link "no cover 7 Heat: Pedal to the Metal 2022" [ref=e300] [cursor=pointer]':
+          - /url: /boardgames/bgg:366013
+          - generic [ref=e301]:
+            - generic [ref=e302]: no cover
+            - generic [ref=e304]: "7"
+          - generic [ref=e305]:
+            - generic [ref=e306]: "Heat: Pedal to the Metal"
+            - generic [ref=e307]: "2022"
+        - link "no cover 7 Res Arcana 2019" [ref=e308] [cursor=pointer]:
+          - /url: /boardgames/bgg:262712
+          - generic [ref=e309]:
+            - generic [ref=e310]: no cover
+            - generic [ref=e312]: "7"
+          - generic [ref=e313]:
+            - generic [ref=e314]: Res Arcana
+            - generic [ref=e315]: "2019"
+        - link "no cover 7 Sky Team 2023" [ref=e316] [cursor=pointer]:
+          - /url: /boardgames/bgg:373106
+          - generic [ref=e317]:
+            - generic [ref=e318]: no cover
+            - generic [ref=e320]: "7"
+          - generic [ref=e321]:
+            - generic [ref=e322]: Sky Team
+            - generic [ref=e323]: "2023"
+        - 'link "no cover 7 Terraforming Mars: Ares Expedition 2021" [ref=e324] [cursor=pointer]':
+          - /url: /boardgames/bgg:328871
+          - generic [ref=e325]:
+            - generic [ref=e326]: no cover
+            - generic [ref=e328]: "7"
+          - generic [ref=e329]:
+            - generic [ref=e330]: "Terraforming Mars: Ares Expedition"
+            - generic [ref=e331]: "2021"
+        - link "no cover 7 The Gang 2024" [ref=e332] [cursor=pointer]:
+          - /url: /boardgames/bgg:411567
+          - generic [ref=e333]:
+            - generic [ref=e334]: no cover
+            - generic [ref=e336]: "7"
+          - generic [ref=e337]:
+            - generic [ref=e338]: The Gang
+            - generic [ref=e339]: "2024"
+        - link "no cover 6.5 Eldritch Horror 2013" [ref=e340] [cursor=pointer]:
+          - /url: /boardgames/bgg:146021
+          - generic [ref=e341]:
+            - generic [ref=e342]: no cover
+            - generic [ref=e344]: "6.5"
+          - generic [ref=e345]:
+            - generic [ref=e346]: Eldritch Horror
+            - generic [ref=e347]: "2013"
+        - link "no cover 6.5 Flip 7 2024" [ref=e348] [cursor=pointer]:
+          - /url: /boardgames/bgg:420087
+          - generic [ref=e349]:
+            - generic [ref=e350]: no cover
+            - generic [ref=e352]: "6.5"
+          - generic [ref=e353]:
+            - generic [ref=e354]: Flip 7
+            - generic [ref=e355]: "2024"
+        - link "no cover 6 Coup 2012" [ref=e356] [cursor=pointer]:
+          - /url: /boardgames/bgg:131357
+          - generic [ref=e357]:
+            - generic [ref=e358]: no cover
+            - generic [ref=e360]: "6"
+          - generic [ref=e361]:
+            - generic [ref=e362]: Coup
+            - generic [ref=e363]: "2012"
+        - 'link "no cover 6 Dead of Winter: A Crossroads Game 2014" [ref=e364] [cursor=pointer]':
+          - /url: /boardgames/bgg:150376
+          - generic [ref=e365]:
+            - generic [ref=e366]: no cover
+            - generic [ref=e368]: "6"
+          - generic [ref=e369]:
+            - generic [ref=e370]: "Dead of Winter: A Crossroads Game"
+            - generic [ref=e371]: "2014"
+        - link "no cover 6 SCOUT 2019" [ref=e372] [cursor=pointer]:
+          - /url: /boardgames/bgg:291453
+          - generic [ref=e373]:
+            - generic [ref=e374]: no cover
+            - generic [ref=e376]: "6"
+          - generic [ref=e377]:
+            - generic [ref=e378]: SCOUT
+            - generic [ref=e379]: "2019"
+        - link "no cover 5 Trio 2021" [ref=e380] [cursor=pointer]:
+          - /url: /boardgames/bgg:352515
+          - generic [ref=e381]:
+            - generic [ref=e382]: no cover
+            - generic [ref=e384]: "5"
+          - generic [ref=e385]:
+            - generic [ref=e386]: Trio
+            - generic [ref=e387]: "2021"
+        - link "no cover Anachrony 2017" [ref=e388] [cursor=pointer]:
+          - /url: /boardgames/bgg:185343
+          - generic [ref=e390]: no cover
+          - generic [ref=e391]:
+            - generic [ref=e392]: Anachrony
+            - generic [ref=e393]: "2017"
+        - 'link "no cover Anachrony: Classic Expansion Pack 2020" [ref=e394] [cursor=pointer]':
+          - /url: /boardgames/bgg:297528
+          - generic [ref=e396]: no cover
+          - generic [ref=e397]:
+            - generic [ref=e398]: "Anachrony: Classic Expansion Pack"
+            - generic [ref=e399]: "2020"
+        - 'link "no cover Arcs: Leaders & Lore Pack 2024" [ref=e400] [cursor=pointer]':
+          - /url: /boardgames/bgg:419279
+          - generic [ref=e402]: no cover
+          - generic [ref=e403]:
+            - generic [ref=e404]: "Arcs: Leaders & Lore Pack"
+            - generic [ref=e405]: "2024"
+        - link "no cover Castle Combo 2024" [ref=e406] [cursor=pointer]:
+          - /url: /boardgames/bgg:416851
+          - generic [ref=e408]: no cover
+          - generic [ref=e409]:
+            - generic [ref=e410]: Castle Combo
+            - generic [ref=e411]: "2024"
+        - link "no cover Covenant 2025" [ref=e412] [cursor=pointer]:
+          - /url: /boardgames/bgg:429863
+          - generic [ref=e414]: no cover
+          - generic [ref=e415]:
+            - generic [ref=e416]: Covenant
+            - generic [ref=e417]: "2025"
+        - link "no cover Cozy Stickerville 2026" [ref=e418] [cursor=pointer]:
+          - /url: /boardgames/bgg:456440
+          - generic [ref=e420]: no cover
+          - generic [ref=e421]:
+            - generic [ref=e422]: Cozy Stickerville
+            - generic [ref=e423]: "2026"
+        - 'link "no cover Fate: Defenders of Grimheim – Sindra & Finkel Expansion 2025" [ref=e424] [cursor=pointer]':
+          - /url: /boardgames/bgg:435671
+          - generic [ref=e426]: no cover
+          - generic [ref=e427]:
+            - generic [ref=e428]: "Fate: Defenders of Grimheim – Sindra & Finkel Expansion"
+            - generic [ref=e429]: "2025"
+        - link "no cover Frosthaven 2022" [ref=e430] [cursor=pointer]:
+          - /url: /boardgames/bgg:295770
+          - generic [ref=e432]: no cover
+          - generic [ref=e433]:
+            - generic [ref=e434]: Frosthaven
+            - generic [ref=e435]: "2022"
+        - 'link "no cover Frostpunk: The Board Game 2022" [ref=e436] [cursor=pointer]':
+          - /url: /boardgames/bgg:311988
+          - generic [ref=e438]: no cover
+          - generic [ref=e439]:
+            - generic [ref=e440]: "Frostpunk: The Board Game"
+            - generic [ref=e441]: "2022"
+        - 'link "no cover Frostpunk: The Board Game – Frostlander 2022" [ref=e442] [cursor=pointer]':
+          - /url: /boardgames/bgg:323382
+          - generic [ref=e444]: no cover
+          - generic [ref=e445]:
+            - generic [ref=e446]: "Frostpunk: The Board Game – Frostlander"
+            - generic [ref=e447]: "2022"
+        - 'link "no cover Gaia Project: The Lost Fleet 2024" [ref=e448] [cursor=pointer]':
+          - /url: /boardgames/bgg:396802
+          - generic [ref=e450]: no cover
+          - generic [ref=e451]:
+            - generic [ref=e452]: "Gaia Project: The Lost Fleet"
+            - generic [ref=e453]: "2024"
+        - 'link "no cover Gloomhaven: Jaws of the Lion 2020" [ref=e454] [cursor=pointer]':
+          - /url: /boardgames/bgg:291457
+          - generic [ref=e456]: no cover
+          - generic [ref=e457]:
+            - generic [ref=e458]: "Gloomhaven: Jaws of the Lion"
+            - generic [ref=e459]: "2020"
+        - 'link "no cover Imperium: Horizons 2024" [ref=e460] [cursor=pointer]':
+          - /url: /boardgames/bgg:367518
+          - generic [ref=e462]: no cover
+          - generic [ref=e463]:
+            - generic [ref=e464]: "Imperium: Horizons"
+            - generic [ref=e465]: "2024"
+        - link "no cover ISS Vanguard 2022" [ref=e466] [cursor=pointer]:
+          - /url: /boardgames/bgg:325494
+          - generic [ref=e468]: no cover
+          - generic [ref=e469]:
+            - generic [ref=e470]: ISS Vanguard
+            - generic [ref=e471]: "2022"
+        - 'link "no cover John Company: Second Edition 2022" [ref=e472] [cursor=pointer]':
+          - /url: /boardgames/bgg:332686
+          - generic [ref=e474]: no cover
+          - generic [ref=e475]:
+            - generic [ref=e476]: "John Company: Second Edition"
+            - generic [ref=e477]: "2022"
+        - 'link "no cover Lost Ruins of Arnak: The Missing Expedition 2023" [ref=e478] [cursor=pointer]':
+          - /url: /boardgames/bgg:382350
+          - generic [ref=e480]: no cover
+          - generic [ref=e481]:
+            - generic [ref=e482]: "Lost Ruins of Arnak: The Missing Expedition"
+            - generic [ref=e483]: "2023"
+        - link "no cover Luthier 2025" [ref=e484] [cursor=pointer]:
+          - /url: /boardgames/bgg:371330
+          - generic [ref=e486]: no cover
+          - generic [ref=e487]:
+            - generic [ref=e488]: Luthier
+            - generic [ref=e489]: "2025"
+        - link "no cover Mage Knight Board Game 2011" [ref=e490] [cursor=pointer]:
+          - /url: /boardgames/bgg:96848
+          - generic [ref=e492]: no cover
+          - generic [ref=e493]:
+            - generic [ref=e494]: Mage Knight Board Game
+            - generic [ref=e495]: "2011"
+        - link "no cover Maracaibo 2019" [ref=e496] [cursor=pointer]:
+          - /url: /boardgames/bgg:276025
+          - generic [ref=e498]: no cover
+          - generic [ref=e499]:
+            - generic [ref=e500]: Maracaibo
+            - generic [ref=e501]: "2019"
+        - link "no cover Nucleum 2023" [ref=e502] [cursor=pointer]:
+          - /url: /boardgames/bgg:396790
+          - generic [ref=e504]: no cover
+          - generic [ref=e505]:
+            - generic [ref=e506]: Nucleum
+            - generic [ref=e507]: "2023"
+        - link "no cover On Mars 2020" [ref=e508] [cursor=pointer]:
+          - /url: /boardgames/bgg:184267
+          - generic [ref=e510]: no cover
+          - generic [ref=e511]:
+            - generic [ref=e512]: On Mars
+            - generic [ref=e513]: "2020"
+        - 'link "no cover Puerto Rico 1897: Special Edition 2025" [ref=e514] [cursor=pointer]':
+          - /url: /boardgames/bgg:415843
+          - generic [ref=e516]: no cover
+          - generic [ref=e517]:
+            - generic [ref=e518]: "Puerto Rico 1897: Special Edition"
+            - generic [ref=e519]: "2025"
+        - 'link "no cover Rewild: South America 2025" [ref=e520] [cursor=pointer]':
+          - /url: /boardgames/bgg:436205
+          - generic [ref=e522]: no cover
+          - generic [ref=e523]:
+            - generic [ref=e524]: "Rewild: South America"
+            - generic [ref=e525]: "2025"
+        - link "no cover Scythe 2016" [ref=e526] [cursor=pointer]:
+          - /url: /boardgames/bgg:169786
+          - generic [ref=e528]: no cover
+          - generic [ref=e529]:
+            - generic [ref=e530]: Scythe
+            - generic [ref=e531]: "2016"
+        - 'link "no cover Scythe: The Rise of Fenris 2018" [ref=e532] [cursor=pointer]':
+          - /url: /boardgames/bgg:242277
+          - generic [ref=e534]: no cover
+          - generic [ref=e535]:
+            - generic [ref=e536]: "Scythe: The Rise of Fenris"
+            - generic [ref=e537]: "2018"
+        - 'link "no cover Scythe: The Wind Gambit 2017" [ref=e538] [cursor=pointer]':
+          - /url: /boardgames/bgg:223555
+          - generic [ref=e540]: no cover
+          - generic [ref=e541]:
+            - generic [ref=e542]: "Scythe: The Wind Gambit"
+            - generic [ref=e543]: "2017"
+        - 'link "no cover Shackleton Base: A Journey to the Moon 2024" [ref=e544] [cursor=pointer]':
+          - /url: /boardgames/bgg:408180
+          - generic [ref=e546]: no cover
+          - generic [ref=e547]:
+            - generic [ref=e548]: "Shackleton Base: A Journey to the Moon"
+            - generic [ref=e549]: "2024"
+        - link "no cover Skull King 2013" [ref=e550] [cursor=pointer]:
+          - /url: /boardgames/bgg:150145
+          - generic [ref=e552]: no cover
+          - generic [ref=e553]:
+            - generic [ref=e554]: Skull King
+            - generic [ref=e555]: "2013"
+        - 'link "no cover Slay the Spire: The Board Game 2024" [ref=e556] [cursor=pointer]':
+          - /url: /boardgames/bgg:338960
+          - generic [ref=e558]: no cover
+          - generic [ref=e559]:
+            - generic [ref=e560]: "Slay the Spire: The Board Game"
+            - generic [ref=e561]: "2024"
+        - link "no cover Sleeping Gods 2021" [ref=e562] [cursor=pointer]:
+          - /url: /boardgames/bgg:255984
+          - generic [ref=e564]: no cover
+          - generic [ref=e565]:
+            - generic [ref=e566]: Sleeping Gods
+            - generic [ref=e567]: "2021"
+        - 'link "no cover Sleeping Gods: Tides of Ruin 2021" [ref=e568] [cursor=pointer]':
+          - /url: /boardgames/bgg:283766
+          - generic [ref=e570]: no cover
+          - generic [ref=e571]:
+            - generic [ref=e572]: "Sleeping Gods: Tides of Ruin"
+            - generic [ref=e573]: "2021"
+        - 'link "no cover Tainted Grail: Kings of Ruin 2024" [ref=e574] [cursor=pointer]':
+          - /url: /boardgames/bgg:360366
+          - generic [ref=e576]: no cover
+          - generic [ref=e577]:
+            - generic [ref=e578]: "Tainted Grail: Kings of Ruin"
+            - generic [ref=e579]: "2024"
+        - link "no cover Tapestry 2019" [ref=e580] [cursor=pointer]:
+          - /url: /boardgames/bgg:286096
+          - generic [ref=e582]: no cover
+          - generic [ref=e583]:
+            - generic [ref=e584]: Tapestry
+            - generic [ref=e585]: "2019"
+        - 'link "no cover Through the Ages: A New Story of Civilization 2015" [ref=e586] [cursor=pointer]':
+          - /url: /boardgames/bgg:182028
+          - generic [ref=e588]: no cover
+          - generic [ref=e589]:
+            - generic [ref=e590]: "Through the Ages: A New Story of Civilization"
+            - generic [ref=e591]: "2015"
+        - 'link "no cover Thunder Road: Vendetta 2023" [ref=e592] [cursor=pointer]':
+          - /url: /boardgames/bgg:342070
+          - generic [ref=e594]: no cover
+          - generic [ref=e595]:
+            - generic [ref=e596]: "Thunder Road: Vendetta"
+            - generic [ref=e597]: "2023"
+        - 'link "no cover Trickerion: Anniversary Edition 2025" [ref=e598] [cursor=pointer]':
+          - /url: /boardgames/bgg:441548
+          - generic [ref=e600]: no cover
+          - generic [ref=e601]:
+            - generic [ref=e602]: "Trickerion: Anniversary Edition"
+            - generic [ref=e603]: "2025"
+        - link "no cover Voidfall 2023" [ref=e604] [cursor=pointer]:
+          - /url: /boardgames/bgg:337627
+          - generic [ref=e606]: no cover
+          - generic [ref=e607]:
+            - generic [ref=e608]: Voidfall
+            - generic [ref=e609]: "2023"
+  - button "Open Next.js Dev Tools" [ref=e615] [cursor=pointer]:
+    - img [ref=e616]
+  - alert [ref=e619]

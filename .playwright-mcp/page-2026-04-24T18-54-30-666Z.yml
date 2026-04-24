@@ -1,0 +1,53 @@
+- generic [active] [ref=e1]:
+  - complementary [ref=e2]:
+    - link "collection." [ref=e4] [cursor=pointer]:
+      - /url: /
+    - navigation [ref=e5]:
+      - link "Home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e7]
+        - text: Home
+      - link "Board games" [ref=e10] [cursor=pointer]:
+        - /url: /boardgames
+        - img [ref=e11]
+        - text: Board games
+      - link "Video games" [ref=e13] [cursor=pointer]:
+        - /url: /videogames
+        - img [ref=e14]
+        - text: Video games
+    - link "Sign in" [ref=e17] [cursor=pointer]:
+      - /url: /login
+      - img [ref=e18]
+      - text: Sign in
+  - main [ref=e21]:
+    - generic [ref=e23]:
+      - link "All board games" [ref=e24] [cursor=pointer]:
+        - /url: /boardgames
+        - img [ref=e25]
+        - text: All board games
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - 'heading "Brass: Birmingham" [level=1] [ref=e31]'
+          - paragraph [ref=e32]: "2018"
+        - generic [ref=e33]:
+          - generic [ref=e34]: "8.5"
+          - generic [ref=e35]: owned
+          - generic [ref=e36]: 2 plays
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - term [ref=e39]: Players
+            - definition [ref=e40]: 2–4
+          - generic [ref=e41]:
+            - term [ref=e42]: Time
+            - definition [ref=e43]: 120 min
+          - generic [ref=e44]:
+            - term [ref=e45]: Weight
+            - definition [ref=e46]: —
+          - generic [ref=e47]:
+            - term [ref=e48]: BGG rank
+            - definition [ref=e49]: "#1"
+        - link "bgg" [ref=e51] [cursor=pointer]:
+          - /url: https://boardgamegeek.com/boardgame/224517
+  - button "Open Next.js Dev Tools" [ref=e57] [cursor=pointer]:
+    - img [ref=e58]
+  - alert [ref=e61]
