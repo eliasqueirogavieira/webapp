@@ -36,6 +36,18 @@ yarn-error.log*
 # personal CSV exports (don't commit your data)
 /data
 
+# Claude Code local state
+/.claude
+
+# Playwright MCP debug artifacts
+/.playwright-mcp
+
+# Local screenshots from manual UI testing (root-level only;
+# real assets live under public/ or src/)
+/*.png
+/*.jpg
+/*.jpeg
+
 # vercel
 .vercel
 
