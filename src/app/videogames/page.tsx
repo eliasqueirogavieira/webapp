@@ -1,25 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
 import { ItemGrid } from "@/components/ItemGrid";
-import type { ItemCardData } from "@/components/ItemCard";
-import { getPreviewVideogames, isPreviewMode } from "@/lib/preview";
+import { getVideogames } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
-async function loadVideogames(): Promise<ItemCardData[]> {
-  if (isPreviewMode()) return getPreviewVideogames();
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("items")
-    .select("id, category, title, year, cover_url, rating")
-    .eq("category", "videogame")
-    .order("rating", { ascending: false, nullsFirst: false })
-    .order("title")
-    .returns<ItemCardData[]>();
-  return data ?? [];
-}
-
 export default async function VideogamesPage() {
-  const items = await loadVideogames();
+  const items = await getVideogames();
   return (
     <div className="flex flex-col gap-6">
       <header>

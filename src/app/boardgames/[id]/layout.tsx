@@ -2,8 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { getPreviewBoardgame, isPreviewMode } from "@/lib/preview";
-import { createClient } from "@/lib/supabase/server";
+import { getBoardgameCover } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -20,29 +19,8 @@ export default async function BoardgameDetailLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
-  let title = "";
-  let coverUrl: string | null = null;
-  let year: number | null = null;
-
-  if (isPreviewMode()) {
-    const d = getPreviewBoardgame(id);
-    if (!d) notFound();
-    title = d.title;
-    coverUrl = d.cover_url;
-    year = d.year;
-  } else {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("items")
-      .select("title, cover_url, year")
-      .eq("id", id)
-      .maybeSingle<{ title: string; cover_url: string | null; year: number | null }>();
-    if (!data) notFound();
-    title = data.title;
-    coverUrl = data.cover_url;
-    year = data.year;
-  }
+  const cover = await getBoardgameCover(id);
+  if (!cover) notFound();
 
   return (
     <div className="flex flex-col gap-8">
@@ -56,10 +34,10 @@ export default async function BoardgameDetailLayout({
       <div className="grid grid-cols-1 gap-8 md:grid-cols-[260px_1fr]">
         <aside className="md:sticky md:top-10 md:self-start">
           <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-[var(--surface)]">
-            {coverUrl && (
+            {cover.cover_url && (
               <Image
-                src={coverUrl}
-                alt={title}
+                src={cover.cover_url}
+                alt={cover.title}
                 fill
                 sizes="260px"
                 className="object-cover"
@@ -68,9 +46,9 @@ export default async function BoardgameDetailLayout({
             )}
           </div>
           <div className="mt-3">
-            <h2 className="text-sm font-medium leading-snug">{title}</h2>
-            {year && (
-              <p className="text-xs text-[var(--muted)]">{year}</p>
+            <h2 className="text-sm font-medium leading-snug">{cover.title}</h2>
+            {cover.year && (
+              <p className="text-xs text-[var(--muted)]">{cover.year}</p>
             )}
           </div>
         </aside>

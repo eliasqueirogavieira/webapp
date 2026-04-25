@@ -2,100 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
 import { RatingBadge } from "@/components/RatingBadge";
 import { ExternalLinks } from "@/components/ExternalLinks";
-import { getPreviewVideogame, isPreviewMode, type VideogameDetail } from "@/lib/preview";
+import { getVideogame } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
-
-type DetailRow = {
-  id: string;
-  title: string;
-  year: number | null;
-  cover_url: string | null;
-  rating: number | null;
-  play_count: number;
-  status: string | null;
-  notes: string | null;
-  videogame_details: {
-    platforms: string[] | null;
-    genres: string[] | null;
-    developers: string[] | null;
-    publishers: string[] | null;
-    release_date: string | null;
-    franchises: string[] | null;
-  } | null;
-  item_externals: { source: string; external_id: string; url: string | null }[];
-};
-
-type View = {
-  title: string;
-  year: number | null;
-  cover_url: string | null;
-  rating: number | null;
-  status: string | null;
-  platforms: string[];
-  genres: string[];
-  developers: string[];
-  publishers: string[];
-  franchises: string[];
-  externals: { source: string; url: string | null }[];
-};
-
-async function loadDetail(id: string): Promise<View | null> {
-  if (isPreviewMode()) {
-    const d: VideogameDetail | null = getPreviewVideogame(id);
-    if (!d) return null;
-    const externals: { source: string; url: string | null }[] = [];
-    if (d.grouvee_url) externals.push({ source: "grouvee", url: d.grouvee_url });
-    // IGDB's site indexes by slug, not numeric id, so we link to a title search
-    // (works without an extra API call to fetch the slug).
-    if (d.igdb_id) {
-      externals.push({
-        source: "igdb",
-        url: `https://www.igdb.com/search?q=${encodeURIComponent(d.title)}`,
-      });
-    }
-    return {
-      title: d.title,
-      year: d.year,
-      cover_url: d.cover_url,
-      rating: d.rating,
-      status: d.status,
-      platforms: d.platforms,
-      genres: d.genres,
-      developers: d.developers,
-      publishers: d.publishers,
-      franchises: d.franchises,
-      externals,
-    };
-  }
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("items")
-    .select(
-      "id, title, year, cover_url, rating, play_count, status, notes, videogame_details(*), item_externals(source, external_id, url)",
-    )
-    .eq("id", id)
-    .maybeSingle<DetailRow>();
-  if (!data) return null;
-  const d = data.videogame_details;
-  return {
-    title: data.title,
-    year: data.year,
-    cover_url: data.cover_url,
-    rating: data.rating,
-    status: data.status,
-    platforms: d?.platforms ?? [],
-    genres: d?.genres ?? [],
-    developers: d?.developers ?? [],
-    publishers: d?.publishers ?? [],
-    franchises: d?.franchises ?? [],
-    externals: data.item_externals.map((e) => ({ source: e.source, url: e.url })),
-  };
-}
 
 export default async function VideogameDetail({
   params,
@@ -103,8 +14,18 @@ export default async function VideogameDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const view = await loadDetail(id);
+  const view = await getVideogame(id);
   if (!view) notFound();
+
+  const externals: { source: string; url: string | null }[] = [];
+  if (view.grouvee_url) externals.push({ source: "grouvee", url: view.grouvee_url });
+  if (view.igdb_id) {
+    // IGDB indexes by slug, not numeric id — link to a title search instead.
+    externals.push({
+      source: "igdb",
+      url: `https://www.igdb.com/search?q=${encodeURIComponent(view.title)}`,
+    });
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -148,9 +69,9 @@ export default async function VideogameDetail({
           {view.publishers.length > 0 && <TagList title="Publicadoras" tags={view.publishers} />}
           {view.franchises.length > 0 && <TagList title="Franquias" tags={view.franchises} />}
 
-          {view.externals.length > 0 && (
+          {externals.length > 0 && (
             <div className="mt-4">
-              <ExternalLinks links={view.externals} />
+              <ExternalLinks links={externals} />
             </div>
           )}
         </div>

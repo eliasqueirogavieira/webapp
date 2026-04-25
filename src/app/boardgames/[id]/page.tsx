@@ -1,106 +1,11 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { StarRating } from "@/components/StarRating";
 import { PlaysList, PlaysSummary } from "@/components/PlaysPanel";
 import { ExternalLinks } from "@/components/ExternalLinks";
-import {
-  getPreviewBoardgame,
-  isPreviewMode,
-  summarizePlays,
-  type BoardgameDetail,
-} from "@/lib/preview";
+import { getBoardgame } from "@/lib/data";
+import { summarizePlays } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
-
-type DetailRow = {
-  id: string;
-  title: string;
-  year: number | null;
-  cover_url: string | null;
-  rating: number | null;
-  play_count: number;
-  status: string | null;
-  notes: string | null;
-  boardgame_details: {
-    min_players: number | null;
-    max_players: number | null;
-    playing_time_min: number | null;
-    weight: number | null;
-    bgg_rank: number | null;
-    mechanics: string[] | null;
-    categories: string[] | null;
-  } | null;
-  item_externals: { source: string; external_id: string; url: string | null }[];
-};
-
-type View = {
-  title: string;
-  year: number | null;
-  rating: number | null;
-  status: string | null;
-  min_players: number | null;
-  max_players: number | null;
-  playing_time_min: number | null;
-  age_min: number | null;
-  designers: string[];
-  artists: string[];
-  themes: string[];
-  mechanics: string[];
-  externals: { source: string; url: string | null }[];
-  plays: BoardgameDetail["plays"];
-};
-
-async function loadView(id: string): Promise<View | null> {
-  if (isPreviewMode()) {
-    const d = getPreviewBoardgame(id);
-    if (!d) return null;
-    const externals: { source: string; url: string | null }[] = [];
-    if (d.ludopedia_url) externals.push({ source: "ludopedia", url: d.ludopedia_url });
-    return {
-      title: d.title,
-      year: d.year,
-      rating: d.rating,
-      status: d.status,
-      min_players: d.min_players,
-      max_players: d.max_players,
-      playing_time_min: d.playing_time_min,
-      age_min: d.age_min,
-      designers: d.designers,
-      artists: d.artists,
-      themes: d.themes,
-      mechanics: d.mechanics,
-      externals,
-      plays: d.plays,
-    };
-  }
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("items")
-    .select(
-      "id, title, year, cover_url, rating, play_count, status, notes, boardgame_details(*), item_externals(source, external_id, url)",
-    )
-    .eq("id", id)
-    .maybeSingle<DetailRow>();
-  if (!data) return null;
-  const d = data.boardgame_details;
-  return {
-    title: data.title,
-    year: data.year,
-    rating: data.rating,
-    status: data.status,
-    min_players: d?.min_players ?? null,
-    max_players: d?.max_players ?? null,
-    playing_time_min: d?.playing_time_min ?? null,
-    age_min: null,
-    designers: [],
-    artists: [],
-    themes: [],
-    mechanics: d?.mechanics ?? [],
-    externals: data.item_externals.map((e) => ({ source: e.source, url: e.url })),
-    plays: [],
-  };
-}
 
 export default async function BoardgameDetail({
   params,
@@ -108,8 +13,11 @@ export default async function BoardgameDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const view = await loadView(id);
+  const view = await getBoardgame(id);
   if (!view) notFound();
+
+  const externals: { source: string; url: string | null }[] = [];
+  if (view.ludopedia_url) externals.push({ source: "ludopedia", url: view.ludopedia_url });
 
   const players =
     view.min_players === view.max_players
@@ -183,9 +91,9 @@ export default async function BoardgameDetail({
         </section>
       )}
 
-      {view.externals.length > 0 && (
+      {externals.length > 0 && (
         <div className="mt-2">
-          <ExternalLinks links={view.externals} />
+          <ExternalLinks links={externals} />
         </div>
       )}
     </div>

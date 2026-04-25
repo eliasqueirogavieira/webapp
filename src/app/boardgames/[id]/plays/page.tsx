@@ -2,11 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PlaysList, PlaysSummary } from "@/components/PlaysPanel";
-import {
-  getPreviewBoardgame,
-  isPreviewMode,
-  summarizePlays,
-} from "@/lib/preview";
+import { getBoardgame } from "@/lib/data";
+import { summarizePlays } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +20,7 @@ export default async function AllPlaysPage({
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
 
-  if (!isPreviewMode()) {
-    // TODO: real Supabase plays table when we go live
-    notFound();
-  }
-
-  const d = getPreviewBoardgame(id);
+  const d = await getBoardgame(id);
   if (!d) notFound();
 
   const plays = d.plays;

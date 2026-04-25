@@ -1,61 +1,13 @@
-import { createClient } from "@/lib/supabase/server";
 import { BentoTile } from "@/components/BentoTile";
-import { ItemCard, type ItemCardData } from "@/components/ItemCard";
+import { ItemCard } from "@/components/ItemCard";
 import { RatingBadge } from "@/components/RatingBadge";
-import { getPreviewStats, isPreviewMode } from "@/lib/preview";
+import { getHomeStats } from "@/lib/data";
+import { isPreviewMode } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
 
-type HomeData = {
-  bgCount: number;
-  vgCount: number;
-  bgAvg: number | null;
-  vgAvg: number | null;
-  topRated: ItemCardData[];
-  recent: ItemCardData[];
-};
-
-async function loadData(): Promise<HomeData> {
-  if (isPreviewMode()) return getPreviewStats();
-
-  const supabase = await createClient();
-  const [{ data: topRated }, { data: recent }, bgCount, vgCount, bgAvg, vgAvg] =
-    await Promise.all([
-      supabase
-        .from("items")
-        .select("id, category, title, year, cover_url, rating")
-        .not("rating", "is", null)
-        .order("rating", { ascending: false })
-        .limit(6)
-        .returns<ItemCardData[]>(),
-      supabase
-        .from("items")
-        .select("id, category, title, year, cover_url, rating")
-        .order("created_at", { ascending: false })
-        .limit(6)
-        .returns<ItemCardData[]>(),
-      supabase.from("items").select("id", { count: "exact", head: true }).eq("category", "boardgame"),
-      supabase.from("items").select("id", { count: "exact", head: true }).eq("category", "videogame"),
-      supabase.from("items").select("rating").eq("category", "boardgame").not("rating", "is", null),
-      supabase.from("items").select("rating").eq("category", "videogame").not("rating", "is", null),
-    ]);
-  const avg = (rows: Array<{ rating: number | null }> | null) => {
-    if (!rows || rows.length === 0) return null;
-    const nums = rows.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n));
-    return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
-  };
-  return {
-    bgCount: bgCount.count ?? 0,
-    vgCount: vgCount.count ?? 0,
-    bgAvg: avg(bgAvg.data),
-    vgAvg: avg(vgAvg.data),
-    topRated: topRated ?? [],
-    recent: recent ?? [],
-  };
-}
-
 export default async function Home() {
-  const { bgCount, vgCount, bgAvg, vgAvg, topRated, recent } = await loadData();
+  const { bgCount, vgCount, bgAvg, vgAvg, topRated, recent } = await getHomeStats();
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
@@ -64,7 +16,7 @@ export default async function Home() {
           Board games e video games — jogados, avaliados, registrados.
           {isPreviewMode() && (
             <span className="ml-2 rounded-md bg-[var(--surface)] px-2 py-0.5 text-xs text-[var(--accent)] ring-1 ring-[var(--border)]">
-              modo prévia (lendo dos CSVs)
+              modo prévia (lendo dos JSONs locais)
             </span>
           )}
         </p>
