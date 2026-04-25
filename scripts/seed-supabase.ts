@@ -174,8 +174,9 @@ async function seedBoardgames(supabase: ReturnType<typeof admin>) {
       external_source: "ludopedia",
       external_url: b.ludopedia_url,
     });
-    // 2) plays — wipe and reinsert (cleanest for the once-per-N-days seed)
-    await supabase.from("plays").delete().eq("item_id", itemId).eq("source", "ludopedia");
+    // 2) plays — upsert by (source, external_id). Same id_partida can come
+    //    back from multiple /partidas queries (e.g. base game + its expansion);
+    //    we let the latest game-context "win" attribution.
     if (b.plays.length > 0) {
       const playRows = b.plays.map((p) => ({
         item_id: itemId,
@@ -188,16 +189,22 @@ async function seedBoardgames(supabase: ReturnType<typeof admin>) {
       }));
       const { data: inserted, error } = await supabase
         .from("plays")
-        .insert(playRows)
+        .upsert(playRows, { onConflict: "source,external_id" })
         .select("id, external_id");
       if (error) throw error;
-      // 3) participants
       const playIdByExternal = new Map(
         (inserted ?? []).map((r: { id: string; external_id: string }) => [
           r.external_id,
           r.id,
         ]),
       );
+      // 3) participants — wipe each play's existing participants, then insert.
+      //    Upsert on plays preserves the row's `id`, so existing participant
+      //    rows would otherwise stack on every re-run.
+      const playIds = Array.from(playIdByExternal.values());
+      if (playIds.length > 0) {
+        await supabase.from("play_participants").delete().in("play_id", playIds);
+      }
       const participantRows: Array<{
         play_id: string;
         name: string;
