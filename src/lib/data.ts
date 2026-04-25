@@ -16,11 +16,14 @@ import {
   getPreviewVideogames,
   isPreviewMode,
   type BoardgameDetail,
+  type HomePlayRow,
   type VideogameDetail,
 } from "./preview";
 import { createClient } from "./supabase/server";
 import type { LudopediaPartida } from "./apis/ludopedia";
 import type { ItemCardData } from "@/components/ItemCard";
+
+export type { HomePlayRow };
 
 // ---------- types ----------
 
@@ -29,8 +32,11 @@ export type HomeStats = {
   vgCount: number;
   bgAvg: number | null;
   vgAvg: number | null;
-  topRated: ItemCardData[];
-  recent: ItemCardData[];
+  topBoardgames: ItemCardData[];
+  topVideogames: ItemCardData[];
+  recentBoardgames: ItemCardData[];
+  recentVideogames: ItemCardData[];
+  recentPlays: HomePlayRow[];
 };
 
 type ExternalRow = { source: string; external_id: string; url: string | null };
@@ -312,10 +318,53 @@ export async function getBoardgameCover(
   return data ?? null;
 }
 
+type RecentPlayRow = {
+  id: string;
+  played_on: string;
+  duration_min: number | null;
+  play_participants: Array<{ ludopedia_user_id: number | null; winner: boolean }>;
+  items: {
+    id: string;
+    title: string;
+    cover_url: string | null;
+    item_externals: Array<{ source: string; external_id: string }>;
+  };
+};
+
+const OWNER_LUDOPEDIA_USER_ID = 115441;
+
+function recentPlayRowToHome(row: RecentPlayRow): HomePlayRow {
+  const me = row.play_participants.find(
+    (p) => p.ludopedia_user_id === OWNER_LUDOPEDIA_USER_ID,
+  );
+  // Build slug from the item's externals (ludopedia for boardgames).
+  const ext = row.items.item_externals.find((e) => e.source === "ludopedia");
+  const slug = ext ? `ludo-${ext.external_id}` : `id-${row.items.id}`;
+  return {
+    play_id: row.id,
+    played_on: row.played_on,
+    duration_min: row.duration_min,
+    won: me?.winner === true,
+    item_slug: slug,
+    item_title: row.items.title,
+    item_cover_url: row.items.cover_url,
+  };
+}
+
 export async function getHomeStats(): Promise<HomeStats> {
   if (isPreviewMode()) return getPreviewStats();
   const supabase = await createClient();
-  const [bgCount, vgCount, bgAvgQ, vgAvgQ, topRated, recent] = await Promise.all([
+  const [
+    bgCount,
+    vgCount,
+    bgAvgQ,
+    vgAvgQ,
+    topBg,
+    topVg,
+    recentBg,
+    recentVg,
+    recentPlaysQ,
+  ] = await Promise.all([
     supabase
       .from("items")
       .select("id", { count: "exact", head: true })
@@ -339,6 +388,7 @@ export async function getHomeStats(): Promise<HomeStats> {
     supabase
       .from("items")
       .select(ITEM_LIST_FIELDS)
+      .eq("category", "boardgame")
       .not("rating", "is", null)
       .order("rating", { ascending: false })
       .limit(6)
@@ -346,21 +396,52 @@ export async function getHomeStats(): Promise<HomeStats> {
     supabase
       .from("items")
       .select(ITEM_LIST_FIELDS)
+      .eq("category", "videogame")
+      .not("rating", "is", null)
+      .order("rating", { ascending: false })
+      .limit(6)
+      .returns<ItemRow[]>(),
+    supabase
+      .from("items")
+      .select(ITEM_LIST_FIELDS)
+      .eq("category", "boardgame")
       .order("created_at", { ascending: false })
       .limit(6)
       .returns<ItemRow[]>(),
-  ]);
+    supabase
+      .from("items")
+      .select(ITEM_LIST_FIELDS)
+      .eq("category", "videogame")
+      .order("created_at", { ascending: false })
+      .limit(6)
+      .returns<ItemRow[]>(),
+    supabase
+      .from("plays")
+      .select(
+        "id, played_on, duration_min, play_participants(ludopedia_user_id, winner), items!inner(id, title, cover_url, item_externals(source, external_id))",
+      )
+      .order("played_on", { ascending: false })
+      .limit(6)
+      .returns<RecentPlayRow[]>(),
+  ] as const);
+
   const avg = (rows: Array<{ rating: number | null }> | null) => {
     if (!rows || rows.length === 0) return null;
     const nums = rows.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n));
     return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
   };
+
+  // The 8th and 9th positions in the destructured array — recentBg and recentVg —
+  // are reused for "recentBoardgames" / "recentVideogames" below.
   return {
     bgCount: bgCount.count ?? 0,
     vgCount: vgCount.count ?? 0,
     bgAvg: avg(bgAvgQ.data),
     vgAvg: avg(vgAvgQ.data),
-    topRated: (topRated.data ?? []).map(itemRowToCard),
-    recent: (recent.data ?? []).map(itemRowToCard),
+    topBoardgames: (topBg.data ?? []).map(itemRowToCard),
+    topVideogames: (topVg.data ?? []).map(itemRowToCard),
+    recentBoardgames: (recentBg.data ?? []).map(itemRowToCard),
+    recentVideogames: (recentVg.data ?? []).map(itemRowToCard),
+    recentPlays: (recentPlaysQ.data ?? []).map(recentPlayRowToHome),
   };
 }

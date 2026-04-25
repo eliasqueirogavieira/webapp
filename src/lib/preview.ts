@@ -334,24 +334,65 @@ export function getPreviewVideogame(id: string): VideogameDetail | null {
 
 // --- Combined / home-page helpers -----------------------------------------
 
+export type HomePlayRow = {
+  play_id: string;
+  played_on: string;
+  duration_min: number | null;
+  won: boolean;
+  item_slug: string;
+  item_title: string;
+  item_cover_url: string | null;
+};
+
+const OWNER_LUDOPEDIA_USER_ID = 115441;
+
 export function getPreviewStats() {
   const bg = getPreviewBoardgames();
   const vg = getPreviewVideogames();
   const bgRated = bg.map((i) => i.rating).filter((r): r is number => r !== null);
   const vgRated = vg.map((i) => i.rating).filter((r): r is number => r !== null);
   const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
-  const topRated = [...bg, ...vg]
-    .filter((i) => i.rating !== null)
-    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+
+  const byRating = (a: ItemCardData, b: ItemCardData) =>
+    (b.rating ?? -1) - (a.rating ?? -1) || a.title.localeCompare(b.title);
+  const topBoardgames = [...bg].sort(byRating).slice(0, 6);
+  const topVideogames = [...vg].sort(byRating).slice(0, 6);
+
+  // No created_at in the CSV-backed preview either — first 6 of each list
+  // approximates "recently added".
+  const recentBoardgames = bg.slice(0, 6);
+  const recentVideogames = vg.slice(0, 6);
+
+  // Fold all plays from the preview boardgames store into a flat sorted list.
+  const store = loadBoardgameStore();
+  const allPlays: HomePlayRow[] = [];
+  for (const [slug, rec] of Object.entries(store)) {
+    for (const p of rec.plays) {
+      const me = p.jogadores.find((j) => j.id_usuario === OWNER_LUDOPEDIA_USER_ID);
+      allPlays.push({
+        play_id: String(p.id_partida),
+        played_on: p.dt_partida,
+        duration_min: p.duracao,
+        won: me?.fl_vencedor === 1,
+        item_slug: slug,
+        item_title: rec.name,
+        item_cover_url: rec.cover_url,
+      });
+    }
+  }
+  const recentPlays = allPlays
+    .sort((a, b) => (a.played_on < b.played_on ? 1 : -1))
     .slice(0, 6);
-  // No created_at in CSVs — show a slice of the head as "recent"
-  const recent = [...bg, ...vg].slice(0, 6);
+
   return {
     bgCount: bg.length,
     vgCount: vg.length,
     bgAvg: avg(bgRated),
     vgAvg: avg(vgRated),
-    topRated,
-    recent,
+    topBoardgames,
+    topVideogames,
+    recentBoardgames,
+    recentVideogames,
+    recentPlays,
   };
 }

@@ -19,8 +19,8 @@ export function ItemCard({ item, className }: { item: ItemCardData; className?: 
       href={`/${hrefCat}/${item.id}`}
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-xl bg-[var(--surface)]",
-        "border border-[var(--border)] hover:border-[var(--accent)]/40",
-        "transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30",
+        "border border-[var(--border)] hover:border-[var(--foreground)]/30",
+        "transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10",
         className,
       )}
     >

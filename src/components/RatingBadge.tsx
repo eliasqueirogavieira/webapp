@@ -21,10 +21,10 @@ export function RatingBadge({
       : "text-base px-2.5 py-0.5 min-w-8";
 
   const unrated = rating === null || rating === undefined;
-  // Solid dark backdrop with blur so the pill stays legible over any cover.
-  // Color is carried by the text + ring, not by the fill.
+  // Solid dark backdrop with blur so the pill stays legible over any cover —
+  // works equally well on dark covers and on the now-light page background.
   const colorCls = unrated
-    ? "bg-black/55 text-zinc-300 ring-1 ring-white/15"
+    ? "bg-black/40 text-zinc-200 ring-1 ring-white/15"
     : rating! >= 8
     ? "bg-black/70 text-emerald-300 ring-1 ring-emerald-400/50"
     : rating! >= 6
