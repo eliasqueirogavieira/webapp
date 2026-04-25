@@ -1,32 +1,47 @@
 /**
- * Preview mode: read the CSVs in data/ directly at request time.
- * Activated with PREVIEW_MODE=1. Lets you see the UI populated with your real
- * collection before wiring up Supabase.
+ * Preview mode: load the user's collection from local JSON caches that the
+ * enrichment scripts produce. Activated with PREVIEW_MODE=1.
  *
- * Covers aren't in the CSVs — tiles show a gray placeholder until you run the
- * real import (which enriches via BGG/IGDB APIs).
+ *   • Board games come from data/preview-boardgames.json (Ludopedia API)
+ *   • Video games come from data/oktano_*_grouvee_*.csv + data/preview-covers.json
+ *     (until we move them into Supabase)
  */
 import "server-only";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import Papa from "papaparse";
-import { bggRatingToTen, grouveeRatingToTen } from "./ratings";
-import type {
-  LudopediaJogo,
-  LudopediaPartida,
-} from "./apis/ludopedia";
+import { grouveeRatingToTen } from "./ratings";
+import type { LudopediaPartida } from "./apis/ludopedia";
 import type { ItemCardData } from "@/components/ItemCard";
 
-type LudopediaEntry = {
-  ludopedia_id: number;
+type BoardgameRecord = {
+  id_jogo: number;
+  name: string;
+  year: number | null;
+  cover_url: string | null;
   ludopedia_url: string | null;
-  detail: LudopediaJogo | null;
+  rating: number | null;
+  play_count: number;
+  owned: boolean;
+  played: boolean;
+  wishlist: boolean;
+  favorite: boolean;
+  comment: string | null;
+  cost: number | null;
+  min_players: number | null;
+  max_players: number | null;
+  playing_time_min: number | null;
+  age_min: number | null;
+  designers: string[];
+  artists: string[];
+  themes: string[];
+  mechanics: string[];
   plays: LudopediaPartida[];
   fetched_at: string;
 };
 
-function loadLudopedia(): Record<string, LudopediaEntry> {
-  const p = resolve(process.cwd(), "data/preview-ludopedia.json");
+function loadBoardgameStore(): Record<string, BoardgameRecord> {
+  const p = resolve(process.cwd(), "data/preview-boardgames.json");
   if (!existsSync(p)) return {};
   try {
     return JSON.parse(readFileSync(p, "utf-8"));
@@ -35,9 +50,8 @@ function loadLudopedia(): Record<string, LudopediaEntry> {
   }
 }
 
-// Covers produced by `npm run enrich:preview`, keyed by preview item id (e.g. "bgg-224517").
-// Read fresh each call — the JSON gets rewritten by the enrichment script while the dev
-// server is running, and stale in-memory caches turned out to mask new covers.
+// Video game covers produced by `npm run enrich:preview`, keyed by `grouvee-<id>`.
+// (Board game covers now ship inside data/preview-boardgames.json.)
 function loadCovers(): Record<string, string> {
   const path = resolve(process.cwd(), "data/preview-covers.json");
   if (!existsSync(path)) return {};
@@ -51,22 +65,6 @@ function loadCovers(): Record<string, string> {
 export function isPreviewMode() {
   return process.env.PREVIEW_MODE === "1";
 }
-
-type BggRow = {
-  objectname: string;
-  objectid: string;
-  rating: string;
-  yearpublished: string;
-  originalname: string;
-  numplays: string;
-  minplayers: string;
-  maxplayers: string;
-  playingtime: string;
-  weight: string;      // user's personal weight (often 0)
-  avgweight: string;   // BGG's crowdsourced weight — prefer this for display
-  rank: string;
-  own: string;
-};
 
 type GrouveeRow = {
   id: string;
@@ -128,10 +126,6 @@ function statusFromShelves(raw: string | undefined): string | null {
 
 // --- Board games -----------------------------------------------------------
 
-// CSV parsing is the expensive part — cache the raw rows, but rebuild the
-// ItemCardData objects every call so they pick up freshly-written covers.
-let cachedBgRows: BggRow[] | null = null;
-
 export type BoardgameDetail = {
   id: string;
   title: string;
@@ -144,21 +138,26 @@ export type BoardgameDetail = {
   min_players: number | null;
   max_players: number | null;
   playing_time_min: number | null;
-  weight: number | null;
-  bgg_rank: number | null;
+  age_min: number | null;
   mechanics: string[];
-  categories: string[];
-  bgg_id: string;
-  // Enriched from Ludopedia /jogos/{id} when available
   designers: string[];
   artists: string[];
   themes: string[];
-  age_min: number | null;
   ludopedia_id: number | null;
   ludopedia_url: string | null;
+  cost: number | null;
+  comment: string | null;
   // Plays come from Ludopedia /partidas, latest first
   plays: LudopediaPartida[];
 };
+
+function statusFromBoardgameRecord(r: BoardgameRecord): string | null {
+  if (r.played) return "played";
+  if (r.owned) return "owned";
+  if (r.wishlist) return "wishlist";
+  if (r.favorite) return "favorite";
+  return null;
+}
 
 export type PlaySummary = {
   total_plays: number;
@@ -196,79 +195,52 @@ export function summarizePlays(plays: LudopediaPartida[], userId = 115441): Play
   };
 }
 
-function loadBoardgameRows(): BggRow[] {
-  if (cachedBgRows) return cachedBgRows;
-  const path = resolve(process.cwd(), "data/collection.csv");
-  cachedBgRows = safeParseCsv<BggRow>(path).filter(
-    (r) => r.objectid && r.objectname,
-  );
-  return cachedBgRows;
-}
-
-function buildBoardgameDetail(
-  r: BggRow,
-  covers: Record<string, string>,
-  ludo: Record<string, LudopediaEntry>,
-): BoardgameDetail {
-  const id = `bgg-${r.objectid}`;
-  const rating = bggRatingToTen(r.rating);
-  const year = parseYear(r.yearpublished);
-  const cover_url = covers[id] ?? null;
-  const ludoEntry = ludo[id];
-  const detail = ludoEntry?.detail ?? null;
+function buildBoardgameDetail(key: string, r: BoardgameRecord): BoardgameDetail {
   return {
-    id,
-    title: r.objectname,
-    year,
-    rating,
-    cover_url,
-    play_count: Number(r.numplays) || 0,
-    status: r.own === "1" ? "owned" : null,
+    id: key,
+    title: r.name,
+    year: r.year,
+    rating: r.rating,
+    cover_url: r.cover_url,
+    play_count: r.play_count,
+    status: statusFromBoardgameRecord(r),
     notes: null,
-    min_players: parseIntMaybe(r.minplayers),
-    max_players: parseIntMaybe(r.maxplayers),
-    playing_time_min: parseIntMaybe(r.playingtime),
-    weight: parseFloatMaybe(r.avgweight) ?? parseFloatMaybe(r.weight),
-    bgg_rank: parseIntMaybe(r.rank),
-    mechanics: [],
-    categories: [],
-    bgg_id: r.objectid,
-    designers: detail?.designers?.map((p) => p.nm_profissional) ?? [],
-    artists: detail?.artistas?.map((p) => p.nm_profissional) ?? [],
-    themes: detail?.temas?.map((t) => t.nm_tema) ?? [],
-    age_min: detail?.idade_minima ?? null,
-    ludopedia_id: ludoEntry?.ludopedia_id ?? null,
-    ludopedia_url: ludoEntry?.ludopedia_url ?? null,
-    plays: ludoEntry?.plays ?? [],
+    min_players: r.min_players,
+    max_players: r.max_players,
+    playing_time_min: r.playing_time_min,
+    age_min: r.age_min,
+    mechanics: r.mechanics,
+    designers: r.designers,
+    artists: r.artists,
+    themes: r.themes,
+    ludopedia_id: r.id_jogo,
+    ludopedia_url: r.ludopedia_url,
+    cost: r.cost,
+    comment: r.comment,
+    plays: r.plays,
   };
 }
 
 export function getPreviewBoardgames(): ItemCardData[] {
-  const rows = loadBoardgameRows();
-  const covers = loadCovers();
-  const items: ItemCardData[] = rows.map((r) => {
-    const id = `bgg-${r.objectid}`;
-    return {
-      id,
-      category: "boardgame",
-      title: r.objectname,
-      year: parseYear(r.yearpublished),
-      cover_url: covers[id] ?? null,
-      rating: bggRatingToTen(r.rating),
-    };
-  });
+  const store = loadBoardgameStore();
+  const items: ItemCardData[] = Object.entries(store).map(([key, r]) => ({
+    id: key,
+    category: "boardgame",
+    title: r.name,
+    year: r.year,
+    cover_url: r.cover_url,
+    rating: r.rating,
+  }));
   return items.sort(
     (a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.title.localeCompare(b.title),
   );
 }
 
 export function getPreviewBoardgame(id: string): BoardgameDetail | null {
-  const rows = loadBoardgameRows();
-  const covers = loadCovers();
-  const ludo = loadLudopedia();
-  const row = rows.find((r) => `bgg-${r.objectid}` === id);
-  if (!row) return null;
-  return buildBoardgameDetail(row, covers, ludo);
+  const store = loadBoardgameStore();
+  const r = store[id];
+  if (!r) return null;
+  return buildBoardgameDetail(id, r);
 }
 
 // --- Video games -----------------------------------------------------------

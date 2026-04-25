@@ -1,45 +1,83 @@
 /**
- * Pulls richer Ludopedia data — full game detail + the user's plays — for every
- * board game in data/collection.csv. Writes to data/preview-ludopedia.json.
+ * Pulls EVERYTHING about Elias's board game collection from Ludopedia and
+ * caches it locally. This is the source of truth for board games — the BGG
+ * CSV is no longer read.
  *
- * Output shape (keyed by `bgg-<objectid>`):
+ * Output: data/preview-boardgames.json keyed by `ludo-<id_jogo>`:
  *   {
- *     "bgg-224517": {
- *       "ludopedia_id": 13494,
+ *     "ludo-13494": {
+ *       "id_jogo": 13494,
+ *       "name": "Brass: Birmingham",
+ *       "year": 2018,
+ *       "cover_url": "https://storage.googleapis.com/.../13494.jpg",
  *       "ludopedia_url": "https://ludopedia.com.br/jogo/...",
- *       "detail": <full /jogos/{id} response>,
- *       "plays":  <array of /partidas entries, latest first>,
- *       "fetched_at": "2026-04-24T..."
+ *       "rating": 8.5,
+ *       "play_count": 2,
+ *       "owned": true,
+ *       "wishlist": false,
+ *       "favorite": false,
+ *       "comment": null,
+ *       "cost": 700,
+ *       "min_players": 2,
+ *       "max_players": 4,
+ *       "playing_time_min": 120,
+ *       "age_min": 14,
+ *       "designers": ["..."],
+ *       "artists": ["..."],
+ *       "themes": ["..."],
+ *       "mechanics": ["..."],
+ *       "plays": [<LudopediaPartida...>],
+ *       "fetched_at": "..."
  *     }
  *   }
  *
  * Usage:
- *   npm run enrich:ludopedia                   # only fetch what's missing
- *   npm run enrich:ludopedia -- --force        # refetch everything
+ *   npm run enrich:boardgames                  # incremental (skip already-cached)
+ *   npm run enrich:boardgames -- --force       # refetch every game from scratch
  */
 import "./_load-env";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import Papa from "papaparse";
 import {
+  ludopediaCollection,
   ludopediaGame,
   ludopediaPlays,
-  ludopediaSearch,
-  pickBestLudopediaMatch,
+  type LudopediaColecaoRow,
   type LudopediaJogo,
   type LudopediaPartida,
 } from "../src/lib/apis/ludopedia";
 
-type Entry = {
-  ludopedia_id: number;
+const OWNER_USER_ID = 115441;
+
+export type BoardgameRecord = {
+  id_jogo: number;
+  name: string;
+  year: number | null;
+  cover_url: string | null;
   ludopedia_url: string | null;
-  detail: LudopediaJogo | null;
+  rating: number | null;
+  play_count: number;
+  owned: boolean;
+  played: boolean;
+  wishlist: boolean;
+  favorite: boolean;
+  comment: string | null;
+  cost: number | null;
+  min_players: number | null;
+  max_players: number | null;
+  playing_time_min: number | null;
+  age_min: number | null;
+  designers: string[];
+  artists: string[];
+  themes: string[];
+  mechanics: string[];
   plays: LudopediaPartida[];
   fetched_at: string;
 };
-type Store = Record<string, Entry>;
 
-const path = resolve(process.cwd(), "data/preview-ludopedia.json");
+type Store = Record<string, BoardgameRecord>;
+
+const path = resolve(process.cwd(), "data/preview-boardgames.json");
 
 function load(): Store {
   if (!existsSync(path)) return {};
@@ -56,72 +94,94 @@ function save(s: Store) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+function upgradeCover(thumbUrl: string | undefined): string | null {
+  // Ludopedia thumbs are like .../<id>_t.jpg; stripping `_t` gives the full size.
+  if (!thumbUrl) return null;
+  return thumbUrl.replace(/_t(\.[a-z]+)(\?.*)?$/i, "$1$2");
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const force = args.includes("--force");
 
   if (!process.env.LUDOPEDIA_TOKEN) {
-    console.error("LUDOPEDIA_TOKEN not set in .env.local — aborting.");
+    console.error("LUDOPEDIA_TOKEN missing in .env.local — aborting.");
     process.exit(1);
   }
 
-  const csv = readFileSync(resolve(process.cwd(), "data/collection.csv"), "utf-8");
-  const { data } = Papa.parse<{
-    objectid: string;
-    objectname: string;
-    yearpublished: string;
-  }>(csv, { header: true, skipEmptyLines: true });
-  const rows = data.filter((r) => r.objectid && r.objectname);
+  console.log("Fetching collection...");
+  const collection = await ludopediaCollection(OWNER_USER_ID);
+  console.log(`Collection: ${collection.length} games.`);
 
-  const store = load();
-  if (force) {
-    console.log("--force: refetching everything.");
-    for (const k of Object.keys(store)) delete store[k];
-    save(store);
-  }
+  const store = force ? {} : load();
 
-  const todo = rows.filter((r) => !store[`bgg-${r.objectid}`]);
-  console.log(`Ludopedia detail+plays: ${todo.length} games to fetch (of ${rows.length}).`);
+  let detailFetches = 0;
+  let playsFetches = 0;
+  for (let i = 0; i < collection.length; i++) {
+    const c: LudopediaColecaoRow = collection[i];
+    const key = `ludo-${c.id_jogo}`;
+    const existing = store[key];
+    const needsRefresh = force || !existing;
 
-  let hits = 0;
-  let misses = 0;
-  for (let i = 0; i < todo.length; i++) {
-    const r = todo[i];
-    try {
-      const results = await ludopediaSearch(r.objectname);
-      const year = Number(r.yearpublished) || null;
-      const best = pickBestLudopediaMatch(r.objectname, year, results);
-      if (!best) {
-        misses++;
-      } else {
-        await sleep(1100);
-        const detail = await ludopediaGame(best.id_jogo);
-        await sleep(1100);
-        const plays = await ludopediaPlays(best.id_jogo);
-        store[`bgg-${r.objectid}`] = {
-          ludopedia_id: best.id_jogo,
-          ludopedia_url:
-            best.link
-              ? best.link.startsWith("http")
-                ? best.link
-                : `https://ludopedia.com.br/${best.link.replace(/^\//, "")}`
-              : null,
-          detail,
-          plays,
-          fetched_at: new Date().toISOString(),
-        };
-        hits++;
-      }
-    } catch (err) {
-      misses++;
-      console.warn(`  skipped "${r.objectname}": ${(err as Error).message}`);
+    let detail: LudopediaJogo | null = null;
+    let plays: LudopediaPartida[] = existing?.plays ?? [];
+    let fetched = existing?.fetched_at ?? new Date().toISOString();
+
+    if (needsRefresh) {
+      detail = await ludopediaGame(c.id_jogo);
+      detailFetches++;
+      await sleep(1100);
+      plays = await ludopediaPlays(c.id_jogo);
+      playsFetches++;
+      await sleep(1100);
+      fetched = new Date().toISOString();
     }
+
+    // Always overwrite "personal" fields from the latest /colecao snapshot —
+    // the user's rating/play count/ownership can change without re-fetching detail.
+    const record: BoardgameRecord = {
+      id_jogo: c.id_jogo,
+      name: c.nm_jogo,
+      year: detail?.ano_publicacao ?? null,
+      cover_url: upgradeCover(c.thumb) ?? upgradeCover(detail?.thumb),
+      ludopedia_url: c.link
+        ? c.link.startsWith("http")
+          ? c.link
+          : `https://ludopedia.com.br/${c.link.replace(/^\//, "")}`
+        : null,
+      rating: c.vl_nota,
+      play_count: c.qt_partidas ?? 0,
+      owned: c.fl_tem === 1,
+      played: c.fl_jogou === 1,
+      wishlist: c.fl_quer === 1,
+      favorite: c.fl_favorito === 1,
+      comment: c.comentario,
+      cost: c.vl_custo,
+      min_players: detail?.qt_jogadores_min ?? null,
+      max_players: detail?.qt_jogadores_max ?? null,
+      playing_time_min: detail?.vl_tempo_jogo ?? null,
+      age_min: detail?.idade_minima ?? null,
+      designers: detail?.designers?.map((p) => p.nm_profissional)
+        ?? existing?.designers ?? [],
+      artists: detail?.artistas?.map((p) => p.nm_profissional)
+        ?? existing?.artists ?? [],
+      themes: detail?.temas?.map((t) => t.nm_tema) ?? existing?.themes ?? [],
+      mechanics: detail?.mecanicas?.map((m) => m.nm_mecanica)
+        ?? existing?.mechanics ?? [],
+      plays,
+      fetched_at: fetched,
+    };
+    store[key] = record;
+
     if (i % 3 === 0) save(store);
-    process.stdout.write(`  ${i + 1}/${todo.length}  hit=${hits} miss=${misses}\r`);
-    await sleep(1100);
+    process.stdout.write(
+      `  ${i + 1}/${collection.length}  detail=${detailFetches} plays=${playsFetches}\r`,
+    );
   }
   save(store);
-  console.log(`\nDone. ${hits} games enriched, ${misses} misses.`);
+  console.log(
+    `\nDone. ${collection.length} games, ${detailFetches} detail fetches, ${playsFetches} plays fetches.`,
+  );
   console.log(`Written to ${path}`);
 }
 

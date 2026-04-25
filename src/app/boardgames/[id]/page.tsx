@@ -41,14 +41,11 @@ type View = {
   min_players: number | null;
   max_players: number | null;
   playing_time_min: number | null;
-  weight: number | null;
-  bgg_rank: number | null;
   age_min: number | null;
   designers: string[];
   artists: string[];
   themes: string[];
   mechanics: string[];
-  categories: string[];
   externals: { source: string; url: string | null }[];
   plays: BoardgameDetail["plays"];
 };
@@ -59,10 +56,6 @@ async function loadView(id: string): Promise<View | null> {
     if (!d) return null;
     const externals: { source: string; url: string | null }[] = [];
     if (d.ludopedia_url) externals.push({ source: "ludopedia", url: d.ludopedia_url });
-    externals.push({
-      source: "bgg",
-      url: `https://boardgamegeek.com/boardgame/${d.bgg_id}`,
-    });
     return {
       title: d.title,
       year: d.year,
@@ -71,14 +64,11 @@ async function loadView(id: string): Promise<View | null> {
       min_players: d.min_players,
       max_players: d.max_players,
       playing_time_min: d.playing_time_min,
-      weight: d.weight,
-      bgg_rank: d.bgg_rank,
       age_min: d.age_min,
       designers: d.designers,
       artists: d.artists,
       themes: d.themes,
       mechanics: d.mechanics,
-      categories: d.categories,
       externals,
       plays: d.plays,
     };
@@ -102,14 +92,11 @@ async function loadView(id: string): Promise<View | null> {
     min_players: d?.min_players ?? null,
     max_players: d?.max_players ?? null,
     playing_time_min: d?.playing_time_min ?? null,
-    weight: d?.weight ?? null,
-    bgg_rank: d?.bgg_rank ?? null,
     age_min: null,
     designers: [],
     artists: [],
     themes: [],
     mechanics: d?.mechanics ?? [],
-    categories: d?.categories ?? [],
     externals: data.item_externals.map((e) => ({ source: e.source, url: e.url })),
     plays: [],
   };
@@ -153,19 +140,11 @@ export default async function BoardgameDetail({
         </div>
       </header>
 
-      <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 md:grid-cols-5">
+      <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 md:grid-cols-3">
         <Stat label="Jogadores" value={players} />
         <Stat
           label="Tempo"
           value={view.playing_time_min ? `${view.playing_time_min} min` : "—"}
-        />
-        <Stat
-          label="Peso"
-          value={view.weight ? `${view.weight.toFixed(2)} / 5` : "—"}
-        />
-        <Stat
-          label="Rank BGG"
-          value={view.bgg_rank ? `#${view.bgg_rank}` : "—"}
         />
         <Stat
           label="Idade"
@@ -184,9 +163,6 @@ export default async function BoardgameDetail({
       )}
       {view.mechanics.length > 0 && (
         <TagList title="Mecânicas" tags={view.mechanics} />
-      )}
-      {view.categories.length > 0 && (
-        <TagList title="Categorias" tags={view.categories} />
       )}
 
       {summary.total_plays > 0 && (

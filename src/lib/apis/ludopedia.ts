@@ -60,6 +60,24 @@ export type LudopediaPartida = {
   expansoes: Array<{ id_jogo: number; nm_jogo: string }>;
 };
 
+export type LudopediaColecaoRow = {
+  id_jogo: number;
+  nm_jogo: string;
+  thumb?: string;
+  link?: string;
+  fl_tem: 0 | 1 | null;
+  fl_quer: 0 | 1 | null;
+  fl_jogou: 0 | 1 | null;
+  fl_teve: 0 | 1 | null;
+  fl_favorito: 0 | 1 | null;
+  vl_nota: number | null;
+  comentario: string | null;
+  qt_partidas: number | null;
+  comentario_privado: string | null;
+  vl_custo: number | null;
+  tags: unknown[];
+};
+
 /**
  * The API only hands out the `_t` (thumbnail) URL, but the same filename
  * without the suffix resolves to the full-size cover on the same bucket.
@@ -115,6 +133,30 @@ export async function ludopediaGame(id: number | string): Promise<LudopediaJogo 
   } catch {
     return null;
   }
+}
+
+/**
+ * Full collection for a user — all games + the owner's personal data
+ * (rating `vl_nota`, play count, ownership flags, comments, cost).
+ */
+export async function ludopediaCollection(
+  idUsuario: number | string,
+): Promise<LudopediaColecaoRow[]> {
+  const all: LudopediaColecaoRow[] = [];
+  let page = 1;
+  const rows = 100;
+  while (true) {
+    const body = await ludoFetch<{
+      colecao: LudopediaColecaoRow[];
+      total?: number;
+    }>(`/colecao?id_usuario=${idUsuario}&rows=${rows}&page=${page}`);
+    const batch = body.colecao ?? [];
+    all.push(...batch);
+    if (batch.length < rows) break;
+    page++;
+    if (page > 50) break;
+  }
+  return all;
 }
 
 /**
