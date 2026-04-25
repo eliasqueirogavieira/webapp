@@ -11,7 +11,29 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import Papa from "papaparse";
 import { bggRatingToTen, grouveeRatingToTen } from "./ratings";
+import type {
+  LudopediaJogo,
+  LudopediaPartida,
+} from "./apis/ludopedia";
 import type { ItemCardData } from "@/components/ItemCard";
+
+type LudopediaEntry = {
+  ludopedia_id: number;
+  ludopedia_url: string | null;
+  detail: LudopediaJogo | null;
+  plays: LudopediaPartida[];
+  fetched_at: string;
+};
+
+function loadLudopedia(): Record<string, LudopediaEntry> {
+  const p = resolve(process.cwd(), "data/preview-ludopedia.json");
+  if (!existsSync(p)) return {};
+  try {
+    return JSON.parse(readFileSync(p, "utf-8"));
+  } catch {
+    return {};
+  }
+}
 
 // Covers produced by `npm run enrich:preview`, keyed by preview item id (e.g. "bgg-224517").
 // Read fresh each call — the JSON gets rewritten by the enrichment script while the dev
@@ -127,7 +149,52 @@ export type BoardgameDetail = {
   mechanics: string[];
   categories: string[];
   bgg_id: string;
+  // Enriched from Ludopedia /jogos/{id} when available
+  designers: string[];
+  artists: string[];
+  themes: string[];
+  age_min: number | null;
+  ludopedia_id: number | null;
+  ludopedia_url: string | null;
+  // Plays come from Ludopedia /partidas, latest first
+  plays: LudopediaPartida[];
 };
+
+export type PlaySummary = {
+  total_plays: number;
+  total_minutes: number;
+  wins: number;
+  played_dates: number; // distinct dates
+  first_date: string | null;
+  last_date: string | null;
+};
+
+export function summarizePlays(plays: LudopediaPartida[], userId = 115441): PlaySummary {
+  let total_plays = 0;
+  let total_minutes = 0;
+  let wins = 0;
+  const dates = new Set<string>();
+  let first: string | null = null;
+  let last: string | null = null;
+  for (const p of plays) {
+    const n = p.qt_partidas || 1;
+    total_plays += n;
+    if (p.duracao) total_minutes += p.duracao * n;
+    const me = p.jogadores.find((j) => j.id_usuario === userId);
+    if (me?.fl_vencedor === 1) wins += n;
+    dates.add(p.dt_partida);
+    if (!first || p.dt_partida < first) first = p.dt_partida;
+    if (!last || p.dt_partida > last) last = p.dt_partida;
+  }
+  return {
+    total_plays,
+    total_minutes,
+    wins,
+    played_dates: dates.size,
+    first_date: first,
+    last_date: last,
+  };
+}
 
 function loadBoardgameRows(): BggRow[] {
   if (cachedBgRows) return cachedBgRows;
@@ -138,11 +205,17 @@ function loadBoardgameRows(): BggRow[] {
   return cachedBgRows;
 }
 
-function buildBoardgameDetail(r: BggRow, covers: Record<string, string>): BoardgameDetail {
+function buildBoardgameDetail(
+  r: BggRow,
+  covers: Record<string, string>,
+  ludo: Record<string, LudopediaEntry>,
+): BoardgameDetail {
   const id = `bgg-${r.objectid}`;
   const rating = bggRatingToTen(r.rating);
   const year = parseYear(r.yearpublished);
   const cover_url = covers[id] ?? null;
+  const ludoEntry = ludo[id];
+  const detail = ludoEntry?.detail ?? null;
   return {
     id,
     title: r.objectname,
@@ -160,6 +233,13 @@ function buildBoardgameDetail(r: BggRow, covers: Record<string, string>): Boardg
     mechanics: [],
     categories: [],
     bgg_id: r.objectid,
+    designers: detail?.designers?.map((p) => p.nm_profissional) ?? [],
+    artists: detail?.artistas?.map((p) => p.nm_profissional) ?? [],
+    themes: detail?.temas?.map((t) => t.nm_tema) ?? [],
+    age_min: detail?.idade_minima ?? null,
+    ludopedia_id: ludoEntry?.ludopedia_id ?? null,
+    ludopedia_url: ludoEntry?.ludopedia_url ?? null,
+    plays: ludoEntry?.plays ?? [],
   };
 }
 
@@ -185,9 +265,10 @@ export function getPreviewBoardgames(): ItemCardData[] {
 export function getPreviewBoardgame(id: string): BoardgameDetail | null {
   const rows = loadBoardgameRows();
   const covers = loadCovers();
+  const ludo = loadLudopedia();
   const row = rows.find((r) => `bgg-${r.objectid}` === id);
   if (!row) return null;
-  return buildBoardgameDetail(row, covers);
+  return buildBoardgameDetail(row, covers, ludo);
 }
 
 // --- Video games -----------------------------------------------------------

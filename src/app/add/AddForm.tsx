@@ -58,7 +58,7 @@ export function AddForm() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={mode === "boardgame" ? "Search BGG..." : "Search IGDB..."}
+          placeholder={mode === "boardgame" ? "Pesquisar no BGG..." : "Pesquisar no IGDB..."}
           className="h-11 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
         />
         <button
@@ -67,7 +67,7 @@ export function AddForm() {
           className="flex h-11 items-center gap-2 rounded-lg bg-[var(--foreground)] px-4 text-sm font-medium text-[var(--background)] disabled:opacity-50"
         >
           {searching && <Loader2 size={14} className="animate-spin" />}
-          Search
+          Pesquisar
         </button>
       </form>
 

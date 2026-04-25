@@ -10,8 +10,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Collection",
-  description: "My board games, video games, and more.",
+  title: "Elias's Hobbies DB",
+  description: "Os hobbies do Elias — board games, video games e mais.",
 };
 
 export default async function RootLayout({
@@ -36,20 +36,24 @@ function Sidebar({ owner, signedIn }: { owner: boolean; signedIn: boolean }) {
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)]/40 backdrop-blur-sm">
       <div className="px-6 pt-8 pb-6">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
-          collection
-          <span className="text-[var(--accent)]">.</span>
+        <Link href="/" className="block leading-tight tracking-tight">
+          <span className="block text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+            Elias's
+          </span>
+          <span className="block text-lg font-semibold">
+            Hobbies DB<span className="text-[var(--accent)]">.</span>
+          </span>
         </Link>
       </div>
       <nav className="flex flex-col gap-1 px-3">
-        <NavLink href="/" icon={<Home size={16} />} label="Home" />
+        <NavLink href="/" icon={<Home size={16} />} label="Início" />
         <NavLink href="/boardgames" icon={<Dice5 size={16} />} label="Board games" />
         <NavLink href="/videogames" icon={<Gamepad2 size={16} />} label="Video games" />
       </nav>
 
       <div className="mt-auto flex flex-col gap-1 px-3 pb-6">
-        {owner && <NavLink href="/add" icon={<Plus size={16} />} label="Add new" />}
-        {!signedIn && <NavLink href="/login" icon={<LogIn size={16} />} label="Sign in" />}
+        {owner && <NavLink href="/add" icon={<Plus size={16} />} label="Adicionar" />}
+        {!signedIn && <NavLink href="/login" icon={<LogIn size={16} />} label="Entrar" />}
       </div>
     </aside>
   );

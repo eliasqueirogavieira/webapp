@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { RatingBadge } from "@/components/RatingBadge";
+import { ExternalLinks } from "@/components/ExternalLinks";
 import { getPreviewVideogame, isPreviewMode, type VideogameDetail } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
@@ -111,7 +112,7 @@ export default async function VideogameDetail({
         href="/videogames"
         className="inline-flex items-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
       >
-        <ArrowLeft size={14} /> All video games
+        <ArrowLeft size={14} /> Todos os Video games
       </Link>
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-[260px_1fr]">
@@ -138,36 +139,35 @@ export default async function VideogameDetail({
 
           <div className="flex flex-wrap gap-2">
             <RatingBadge rating={view.rating} size="lg" />
-            {view.status && <Pill>{view.status}</Pill>}
+            {view.status && <Pill>{translateStatus(view.status)}</Pill>}
           </div>
 
-          {view.genres.length > 0 && <TagList title="Genres" tags={view.genres} />}
-          {view.platforms.length > 0 && <TagList title="Platforms" tags={view.platforms} />}
-          {view.developers.length > 0 && <TagList title="Developers" tags={view.developers} />}
-          {view.publishers.length > 0 && <TagList title="Publishers" tags={view.publishers} />}
-          {view.franchises.length > 0 && <TagList title="Franchises" tags={view.franchises} />}
+          {view.genres.length > 0 && <TagList title="Gêneros" tags={view.genres} />}
+          {view.platforms.length > 0 && <TagList title="Plataformas" tags={view.platforms} />}
+          {view.developers.length > 0 && <TagList title="Desenvolvedoras" tags={view.developers} />}
+          {view.publishers.length > 0 && <TagList title="Publicadoras" tags={view.publishers} />}
+          {view.franchises.length > 0 && <TagList title="Franquias" tags={view.franchises} />}
 
           {view.externals.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3 text-sm">
-              {view.externals
-                .filter((e) => e.url)
-                .map((e) => (
-                  <a
-                    key={e.source}
-                    href={e.url!}
-                    target="_blank"
-                    rel="noopener"
-                    className="text-[var(--accent)] hover:underline"
-                  >
-                    {e.source}
-                  </a>
-                ))}
+            <div className="mt-4">
+              <ExternalLinks links={view.externals} />
             </div>
           )}
         </div>
       </div>
     </div>
   );
+}
+
+const STATUS_PT: Record<string, string> = {
+  owned: "tenho",
+  played: "jogado",
+  wishlist: "lista de desejos",
+  backlog: "backlog",
+  abandoned: "abandonado",
+};
+function translateStatus(s: string): string {
+  return STATUS_PT[s] ?? s;
 }
 
 function Pill({ children }: { children: React.ReactNode }) {

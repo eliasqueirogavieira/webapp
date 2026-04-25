@@ -1,10 +1,14 @@
-import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { RatingBadge } from "@/components/RatingBadge";
-import { getPreviewBoardgame, isPreviewMode, type BoardgameDetail } from "@/lib/preview";
+import { StarRating } from "@/components/StarRating";
+import { PlaysList, PlaysSummary } from "@/components/PlaysPanel";
+import { ExternalLinks } from "@/components/ExternalLinks";
+import {
+  getPreviewBoardgame,
+  isPreviewMode,
+  summarizePlays,
+  type BoardgameDetail,
+} from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
 
@@ -32,44 +36,51 @@ type DetailRow = {
 type View = {
   title: string;
   year: number | null;
-  cover_url: string | null;
   rating: number | null;
-  play_count: number;
   status: string | null;
   min_players: number | null;
   max_players: number | null;
   playing_time_min: number | null;
   weight: number | null;
   bgg_rank: number | null;
+  age_min: number | null;
+  designers: string[];
+  artists: string[];
+  themes: string[];
   mechanics: string[];
   categories: string[];
   externals: { source: string; url: string | null }[];
+  plays: BoardgameDetail["plays"];
 };
 
-async function loadDetail(id: string): Promise<View | null> {
+async function loadView(id: string): Promise<View | null> {
   if (isPreviewMode()) {
-    const d: BoardgameDetail | null = getPreviewBoardgame(id);
+    const d = getPreviewBoardgame(id);
     if (!d) return null;
+    const externals: { source: string; url: string | null }[] = [];
+    if (d.ludopedia_url) externals.push({ source: "ludopedia", url: d.ludopedia_url });
+    externals.push({
+      source: "bgg",
+      url: `https://boardgamegeek.com/boardgame/${d.bgg_id}`,
+    });
     return {
       title: d.title,
       year: d.year,
-      cover_url: d.cover_url,
       rating: d.rating,
-      play_count: d.play_count,
       status: d.status,
       min_players: d.min_players,
       max_players: d.max_players,
       playing_time_min: d.playing_time_min,
       weight: d.weight,
       bgg_rank: d.bgg_rank,
+      age_min: d.age_min,
+      designers: d.designers,
+      artists: d.artists,
+      themes: d.themes,
       mechanics: d.mechanics,
       categories: d.categories,
-      externals: [
-        {
-          source: "bgg",
-          url: `https://boardgamegeek.com/boardgame/${d.bgg_id}`,
-        },
-      ],
+      externals,
+      plays: d.plays,
     };
   }
 
@@ -86,18 +97,21 @@ async function loadDetail(id: string): Promise<View | null> {
   return {
     title: data.title,
     year: data.year,
-    cover_url: data.cover_url,
     rating: data.rating,
-    play_count: data.play_count,
     status: data.status,
     min_players: d?.min_players ?? null,
     max_players: d?.max_players ?? null,
     playing_time_min: d?.playing_time_min ?? null,
     weight: d?.weight ?? null,
     bgg_rank: d?.bgg_rank ?? null,
+    age_min: null,
+    designers: [],
+    artists: [],
+    themes: [],
     mechanics: d?.mechanics ?? [],
     categories: d?.categories ?? [],
     externals: data.item_externals.map((e) => ({ source: e.source, url: e.url })),
+    plays: [],
   };
 }
 
@@ -107,95 +121,110 @@ export default async function BoardgameDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const view = await loadDetail(id);
+  const view = await loadView(id);
   if (!view) notFound();
 
   const players =
     view.min_players === view.max_players
       ? `${view.min_players ?? "?"}`
       : `${view.min_players ?? "?"}–${view.max_players ?? "?"}`;
+  const summary = summarizePlays(view.plays);
+  const latestFive = view.plays.slice(0, 5);
 
   return (
     <div className="flex flex-col gap-8">
-      <Link
-        href="/boardgames"
-        className="inline-flex items-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
-      >
-        <ArrowLeft size={14} /> All board games
-      </Link>
-
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-[260px_1fr]">
-        <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-[var(--surface)]">
-          {view.cover_url ? (
-            <Image
-              src={view.cover_url}
-              alt={view.title}
-              fill
-              sizes="260px"
-              className="object-cover"
-              priority
-            />
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-5">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">{view.title}</h1>
-            {view.year && (
-              <p className="mt-1 text-sm text-[var(--muted)]">{view.year}</p>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <RatingBadge rating={view.rating} size="lg" />
-            {view.status && <Pill>{view.status}</Pill>}
-            {view.play_count > 0 && <Pill>{view.play_count} plays</Pill>}
-          </div>
-
-          <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-            <Stat label="Players" value={players} />
-            <Stat
-              label="Time"
-              value={view.playing_time_min ? `${view.playing_time_min} min` : "—"}
-            />
-            <Stat
-              label="Weight"
-              value={view.weight ? `${view.weight.toFixed(2)} / 5` : "—"}
-            />
-            <Stat
-              label="BGG rank"
-              value={view.bgg_rank ? `#${view.bgg_rank}` : "—"}
-            />
-          </dl>
-
-          {view.mechanics.length > 0 && (
-            <TagList title="Mechanics" tags={view.mechanics} />
-          )}
-          {view.categories.length > 0 && (
-            <TagList title="Categories" tags={view.categories} />
-          )}
-
-          {view.externals.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3 text-sm">
-              {view.externals
-                .filter((e) => e.url)
-                .map((e) => (
-                  <a
-                    key={e.source}
-                    href={e.url!}
-                    target="_blank"
-                    rel="noopener"
-                    className="text-[var(--accent)] hover:underline"
-                  >
-                    {e.source}
-                  </a>
-                ))}
-            </div>
+      <header className="flex flex-col gap-3">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">{view.title}</h1>
+          {view.year && (
+            <p className="mt-1 text-sm text-[var(--muted)]">{view.year}</p>
           )}
         </div>
-      </div>
+
+        <StarRating rating={view.rating} size="lg" />
+
+        <div className="flex flex-wrap gap-2">
+          {view.status && <Pill>{translateStatus(view.status)}</Pill>}
+          {summary.total_plays > 0 && (
+            <Pill>
+              {summary.total_plays} {summary.total_plays === 1 ? "partida" : "partidas"}
+            </Pill>
+          )}
+        </div>
+      </header>
+
+      <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 md:grid-cols-5">
+        <Stat label="Jogadores" value={players} />
+        <Stat
+          label="Tempo"
+          value={view.playing_time_min ? `${view.playing_time_min} min` : "—"}
+        />
+        <Stat
+          label="Peso"
+          value={view.weight ? `${view.weight.toFixed(2)} / 5` : "—"}
+        />
+        <Stat
+          label="Rank BGG"
+          value={view.bgg_rank ? `#${view.bgg_rank}` : "—"}
+        />
+        <Stat
+          label="Idade"
+          value={view.age_min ? `${view.age_min}+` : "—"}
+        />
+      </dl>
+
+      {view.designers.length > 0 && (
+        <CreditRow label="Design" names={view.designers} />
+      )}
+      {view.artists.length > 0 && (
+        <CreditRow label="Arte" names={view.artists} />
+      )}
+      {view.themes.length > 0 && (
+        <TagList title="Temas" tags={view.themes} />
+      )}
+      {view.mechanics.length > 0 && (
+        <TagList title="Mecânicas" tags={view.mechanics} />
+      )}
+      {view.categories.length > 0 && (
+        <TagList title="Categorias" tags={view.categories} />
+      )}
+
+      {summary.total_plays > 0 && (
+        <section className="flex flex-col gap-4">
+          <h2 className="text-lg font-semibold tracking-tight">Partidas</h2>
+          <PlaysSummary summary={summary} />
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium text-[var(--muted)]">
+              {latestFive.length === 1 ? "Última" : `Últimas ${latestFive.length}`}
+            </h3>
+            <PlaysList
+              plays={latestFive}
+              showAllHref={
+                view.plays.length > 5 ? `/boardgames/${id}/plays` : undefined
+              }
+            />
+          </div>
+        </section>
+      )}
+
+      {view.externals.length > 0 && (
+        <div className="mt-2">
+          <ExternalLinks links={view.externals} />
+        </div>
+      )}
     </div>
   );
+}
+
+const STATUS_PT: Record<string, string> = {
+  owned: "tenho",
+  played: "jogado",
+  wishlist: "lista de desejos",
+  backlog: "backlog",
+  abandoned: "abandonado",
+};
+function translateStatus(s: string): string {
+  return STATUS_PT[s] ?? s;
 }
 
 function Pill({ children }: { children: React.ReactNode }) {
@@ -211,6 +240,26 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
     <div>
       <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">{label}</dt>
       <dd className="mt-1 font-medium">{value}</dd>
+    </div>
+  );
+}
+
+function CreditRow({ label, names }: { label: string; names: string[] }) {
+  return (
+    <div>
+      <span className="text-xs uppercase tracking-wide text-[var(--muted)]">
+        {label}
+      </span>
+      <div className="mt-1 text-sm">
+        {names.map((n, i) => (
+          <span key={n}>
+            <span className="font-medium">{n}</span>
+            {i < names.length - 1 && (
+              <span className="text-[var(--muted)]">, </span>
+            )}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

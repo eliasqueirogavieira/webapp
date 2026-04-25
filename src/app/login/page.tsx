@@ -37,9 +37,9 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto mt-16 flex max-w-sm flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
+      <h1 className="text-2xl font-semibold">Entrar</h1>
       <p className="text-sm text-[var(--muted)]">
-        Only the owner can edit the collection. Viewing is public.
+        Apenas o dono pode editar a coleção. A visualização é pública.
       </p>
 
       <button
@@ -47,18 +47,18 @@ export default function LoginPage() {
         disabled={loading}
         className="flex h-11 items-center justify-center rounded-lg bg-[var(--foreground)] px-4 font-medium text-[var(--background)] hover:opacity-90 disabled:opacity-50"
       >
-        Continue with Google
+        Continuar com Google
       </button>
 
       <div className="flex items-center gap-3 text-xs text-[var(--muted)]">
         <span className="h-px flex-1 bg-[var(--border)]" />
-        or
+        ou
         <span className="h-px flex-1 bg-[var(--border)]" />
       </div>
 
       {sent ? (
         <p className="text-sm text-[var(--accent)]">
-          Magic link sent — check your inbox.
+          Link mágico enviado — verifique sua caixa de entrada.
         </p>
       ) : (
         <form onSubmit={signInWithEmail} className="flex flex-col gap-3">
@@ -67,7 +67,7 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            placeholder="voce@exemplo.com"
             className="h-11 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
           />
           <button
@@ -75,7 +75,7 @@ export default function LoginPage() {
             disabled={loading}
             className="h-11 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 text-sm hover:bg-[var(--surface-hover)] disabled:opacity-50"
           >
-            Send magic link
+            Enviar link mágico
           </button>
         </form>
       )}

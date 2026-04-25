@@ -18,7 +18,7 @@ type LudopediaHit = {
   link?: string;
 };
 
-type LudopediaJogo = {
+export type LudopediaJogo = {
   id_jogo: number;
   nm_jogo: string;
   nm_original?: string;
@@ -26,10 +26,38 @@ type LudopediaJogo = {
   ano_nacional?: number;
   qt_jogadores_min?: number;
   qt_jogadores_max?: number;
+  vl_tempo_jogo?: number;
+  idade_minima?: number;
   thumb?: string;
   link?: string;
   mecanicas?: Array<{ id_mecanica: number; nm_mecanica: string }>;
   temas?: Array<{ id_tema: number; nm_tema: string }>;
+  categorias?: Array<{ id_categoria: number; nm_categoria: string }>;
+  artistas?: Array<{ id_profissional: number; nm_profissional: string }>;
+  designers?: Array<{ id_profissional: number; nm_profissional: string }>;
+  qt_tem?: number;
+  qt_favorito?: number;
+  qt_jogou?: number;
+};
+
+export type LudopediaJogador = {
+  nome: string;
+  id_usuario: number | null;
+  id_partida_jogador?: number;
+  fl_vencedor: 0 | 1;
+  vl_pontos: number | null;
+  observacao?: string;
+  thumb?: string;
+};
+
+export type LudopediaPartida = {
+  id_partida: number;
+  dt_partida: string;            // YYYY-MM-DD
+  duracao: number | null;        // minutes
+  qt_partidas: number;            // number of plays bundled in this entry
+  descricao?: string;
+  jogadores: LudopediaJogador[];
+  expansoes: Array<{ id_jogo: number; nm_jogo: string }>;
 };
 
 /**
@@ -87,6 +115,28 @@ export async function ludopediaGame(id: number | string): Promise<LudopediaJogo 
   } catch {
     return null;
   }
+}
+
+/**
+ * All plays for a given Ludopedia game id, scoped to the token's owner.
+ * Returns the latest first. The endpoint paginates with rows/page; we collect all.
+ */
+export async function ludopediaPlays(idJogo: number | string): Promise<LudopediaPartida[]> {
+  const all: LudopediaPartida[] = [];
+  let page = 1;
+  const rows = 50;
+  while (true) {
+    const body = await ludoFetch<{
+      partidas: LudopediaPartida[];
+      total?: number;
+    }>(`/partidas?id_jogo=${idJogo}&rows=${rows}&page=${page}`);
+    const batch = body.partidas ?? [];
+    all.push(...batch);
+    if (batch.length < rows) break;
+    page++;
+    if (page > 100) break; // safety
+  }
+  return all;
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");

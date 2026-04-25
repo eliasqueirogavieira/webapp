@@ -4,7 +4,7 @@ export function ItemGrid({ items }: { items: ItemCardData[] }) {
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-[var(--border)] p-12 text-center text-[var(--muted)]">
-        Nothing here yet.
+        Nada por aqui ainda.
       </div>
     );
   }

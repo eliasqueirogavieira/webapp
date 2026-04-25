@@ -35,7 +35,7 @@ export function ItemCard({ item, className }: { item: ItemCardData; className?: 
           />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
-            no cover
+            sem capa
           </div>
         )}
         {item.rating !== null && (

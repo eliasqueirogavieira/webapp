@@ -11,9 +11,9 @@ export default async function AddPage() {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Add new</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Adicionar</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Search BGG or IGDB and pick a result to add it to your collection.
+          Pesquise no BGG ou IGDB e selecione um resultado para adicionar à sua coleção.
         </p>
       </header>
       <AddForm />

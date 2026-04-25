@@ -11,7 +11,8 @@
     "import:bgg": "tsx scripts/import-bgg.ts",
     "import:grouvee": "tsx scripts/import-grouvee.ts",
     "import:all": "npm run import:bgg && npm run import:grouvee",
-    "enrich:preview": "tsx scripts/enrich-preview.ts"
+    "enrich:preview": "tsx scripts/enrich-preview.ts",
+    "enrich:ludopedia": "tsx scripts/enrich-ludopedia.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
