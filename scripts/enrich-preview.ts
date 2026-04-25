@@ -13,8 +13,8 @@
  *   npm run enrich:preview -- --force          # refetch all IGDB covers
  */
 import "./_load-env";
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import Papa from "papaparse";
 import {
   igdbByIds,
@@ -36,6 +36,7 @@ function loadExisting(): CoverMap {
 }
 
 function save(map: CoverMap) {
+  mkdirSync(dirname(coversPath), { recursive: true });
   writeFileSync(coversPath, JSON.stringify(map, null, 2) + "\n", "utf-8");
 }
 

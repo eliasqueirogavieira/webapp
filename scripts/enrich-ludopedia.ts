@@ -36,8 +36,8 @@
  *   npm run enrich:boardgames -- --force       # refetch every game from scratch
  */
 import "./_load-env";
-import { writeFileSync, readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import {
   ludopediaCollection,
   ludopediaGame,
@@ -89,6 +89,7 @@ function load(): Store {
 }
 
 function save(s: Store) {
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(s, null, 2) + "\n", "utf-8");
 }
 
