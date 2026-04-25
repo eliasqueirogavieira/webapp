@@ -78,6 +78,7 @@ type GrouveeRow = {
   developers: string;
   publishers: string;
   franchises: string;
+  date_added_to_collection: string; // YYYY-MM-DD
 };
 
 // ---------- helpers ----------
@@ -286,6 +287,12 @@ async function seedVideogames(supabase: ReturnType<typeof admin>) {
     const primarySource = r.igdb_id ? "igdb" : "grouvee";
     const primaryId = r.igdb_id || r.id;
 
+    // Grouvee export gives an explicit date-added per row (YYYY-MM-DD).
+    // Use it as created_at so "Adicionados recentemente" reflects real order.
+    const createdAt = r.date_added_to_collection
+      ? new Date(`${r.date_added_to_collection}T12:00:00Z`).toISOString()
+      : null;
+
     const itemId = await upsertItem(supabase, {
       category: "videogame",
       title: r.name,
@@ -310,6 +317,7 @@ async function seedVideogames(supabase: ReturnType<typeof admin>) {
       franchises,
       release_date: r.release_date || null,
       cost: null,
+      created_at: createdAt,
       external_id: primaryId,
       external_source: primarySource,
       external_url:
@@ -362,6 +370,8 @@ type ItemPayload = {
   franchises?: string[];
   release_date?: string | null;
   cost: number | null;
+  /** ISO timestamp; when set, drives the "added to collection" ordering. */
+  created_at?: string | null;
   external_id: string;
   external_source: string;
   external_url: string | null;
@@ -379,7 +389,7 @@ async function upsertItem(
     .eq("external_id", p.external_id)
     .maybeSingle<{ item_id: string }>();
 
-  const itemFields = {
+  const itemFields: Record<string, unknown> = {
     category: p.category,
     title: p.title,
     year: p.year,
@@ -404,6 +414,9 @@ async function upsertItem(
     release_date: p.release_date ?? null,
     cost: p.cost,
   };
+  // Only set created_at when the seed has an authoritative source (e.g. Grouvee
+  // date_added_to_collection); otherwise let Postgres default keep its value.
+  if (p.created_at) itemFields.created_at = p.created_at;
 
   let itemId: string;
   if (existing?.item_id) {
