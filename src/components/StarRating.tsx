@@ -29,9 +29,12 @@ export function StarRating({
     <div className={cn("inline-flex items-center gap-2.5", className)}>
       <div className="relative inline-flex" aria-label={`Avaliação ${value} de 10`}>
         <Row size={starSize} muted />
+        {/* Filled overlay: full width matching the muted row, cropped from the
+            right via clip-path. Using a width-based crop instead would shrink
+            the flex children and misalign each star. */}
         <div
-          className="absolute left-0 top-0 overflow-hidden"
-          style={{ width: `${pct}%` }}
+          className="pointer-events-none absolute inset-0"
+          style={{ clipPath: `inset(0 ${100 - pct}% 0 0)` }}
         >
           <Row size={starSize} />
         </div>

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { RatingBadge } from "@/components/RatingBadge";
+import { StarRating } from "@/components/StarRating";
 import { ExternalLinks } from "@/components/ExternalLinks";
 import { getVideogame } from "@/lib/data";
 
@@ -58,8 +58,9 @@ export default async function VideogameDetail({
             )}
           </div>
 
+          <StarRating rating={view.rating} size="lg" />
+
           <div className="flex flex-wrap gap-2">
-            <RatingBadge rating={view.rating} size="lg" />
             {view.status && <Pill>{translateStatus(view.status)}</Pill>}
           </div>
 

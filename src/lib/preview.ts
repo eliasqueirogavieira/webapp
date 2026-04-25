@@ -79,6 +79,8 @@ type GrouveeRow = {
   publishers: string;
   franchises: string;
   shelves: string;
+  /** YYYY-MM-DD — Grouvee's per-row "Date Added to Collection". */
+  date_added_to_collection: string;
 };
 
 function safeParseCsv<T>(path: string): T[] {
@@ -305,6 +307,27 @@ function buildVideogameDetail(r: GrouveeRow, covers: Record<string, string>): Vi
   };
 }
 
+/** Preview-mode helper: video games sorted by Grouvee's date_added desc. */
+function vgRecentByGrouveeDate(): ItemCardData[] {
+  const rows = loadVideogameRows();
+  const covers = loadCovers();
+  const items = rows.map((r) => ({
+    id: `grouvee-${r.id}` as const,
+    category: "videogame" as const,
+    title: r.name,
+    year: parseYear(r.release_date),
+    cover_url: covers[`grouvee-${r.id}`] ?? null,
+    rating: grouveeRatingToTen(r.rating),
+    _date: r.date_added_to_collection || "",
+  }));
+  return items
+    .sort((a, b) => (a._date < b._date ? 1 : a._date > b._date ? -1 : 0))
+    .map(({ _date, ...rest }) => {
+      void _date;
+      return rest;
+    });
+}
+
 export function getPreviewVideogames(): ItemCardData[] {
   const rows = loadVideogameRows();
   const covers = loadCovers();
@@ -377,19 +400,31 @@ export function getPreviewStats() {
     .sort((a, b) => (a.played_on < b.played_on ? 1 : -1))
     .slice(0, 6);
 
+  // "Highlight" semantics differ by category — see CategoryConfig.highlight.
+  // Boardgames: most-played (only games with at least one play). Videogames: first
+  // 6 of the loaded list, which is already created_at desc thanks to the seed.
+  const bgPlayCount = new Map<string, number>();
+  for (const [slug, rec] of Object.entries(store)) {
+    bgPlayCount.set(slug, rec.play_count ?? rec.plays.length);
+  }
+  const bgMostPlayed = [...bg]
+    .filter((i) => (bgPlayCount.get(i.id) ?? 0) > 0)
+    .sort((a, b) => (bgPlayCount.get(b.id) ?? 0) - (bgPlayCount.get(a.id) ?? 0))
+    .slice(0, 6);
+
   return {
     byCategory: {
       boardgame: {
         count: bg.length,
         avg: avg(bg),
         top: [...bg].sort(byRating).slice(0, 6),
-        recent: bg.slice(0, 6),
+        highlight: bgMostPlayed,
       },
       videogame: {
         count: vg.length,
         avg: avg(vg),
         top: [...vg].sort(byRating).slice(0, 6),
-        recent: vg.slice(0, 6),
+        highlight: vgRecentByGrouveeDate().slice(0, 6),
       },
     },
     recentPlays,

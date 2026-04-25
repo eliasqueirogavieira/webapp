@@ -49,11 +49,11 @@ export default async function LandingPage() {
 
       {visible.map(({ config, stats }) => (
         <Section
-          key={`recent-${config.enum}`}
-          eyebrow="Adicionados recentemente"
+          key={`highlight-${config.enum}`}
+          eyebrow={config.highlightLabel}
           title={config.label}
         >
-          <CardRow items={stats.recent} />
+          <CardRow items={stats.highlight} />
         </Section>
       ))}
 

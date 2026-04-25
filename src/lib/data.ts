@@ -32,8 +32,11 @@ export type { HomePlayRow };
 export type CategoryStats = {
   count: number;
   avg: number | null;
-  top: ItemCardData[];     // top 6 by rating, desc
-  recent: ItemCardData[];  // last 6 added (by created_at)
+  /** Top 6 by rating (descending). */
+  top: ItemCardData[];
+  /** Secondary "highlight" list: meaning depends on the category — most-played
+   *  for boardgames, recently-added for videogames. See `CategoryConfig.highlight`. */
+  highlight: ItemCardData[];
 };
 
 export type HomeStats = {
@@ -360,7 +363,26 @@ async function fetchCategoryStats(
   supabase: Awaited<ReturnType<typeof createClient>>,
   category: CategoryEnum,
 ): Promise<CategoryStats> {
-  const [countQ, avgQ, topQ, recentQ] = await Promise.all([
+  const config = ENABLED_CATEGORIES.find((c) => c.enum === category);
+  // For "mostPlayed" highlight: order by play_count desc + filter > 0 so games
+  // never played don't dilute the list.
+  const highlightQuery =
+    config?.highlight === "mostPlayed"
+      ? supabase
+          .from("items")
+          .select(ITEM_LIST_FIELDS)
+          .eq("category", category)
+          .gt("play_count", 0)
+          .order("play_count", { ascending: false })
+          .limit(6)
+      : supabase
+          .from("items")
+          .select(ITEM_LIST_FIELDS)
+          .eq("category", category)
+          .order("created_at", { ascending: false })
+          .limit(6);
+
+  const [countQ, avgQ, topQ, highlightQ] = await Promise.all([
     supabase
       .from("items")
       .select("id", { count: "exact", head: true })
@@ -379,13 +401,7 @@ async function fetchCategoryStats(
       .order("rating", { ascending: false })
       .limit(6)
       .returns<ItemRow[]>(),
-    supabase
-      .from("items")
-      .select(ITEM_LIST_FIELDS)
-      .eq("category", category)
-      .order("created_at", { ascending: false })
-      .limit(6)
-      .returns<ItemRow[]>(),
+    highlightQuery.returns<ItemRow[]>(),
   ]);
   const nums = (avgQ.data ?? [])
     .map((r) => Number(r.rating))
@@ -395,7 +411,7 @@ async function fetchCategoryStats(
     count: countQ.count ?? 0,
     avg,
     top: (topQ.data ?? []).map(itemRowToCard),
-    recent: (recentQ.data ?? []).map(itemRowToCard),
+    highlight: (highlightQ.data ?? []).map(itemRowToCard),
   };
 }
 

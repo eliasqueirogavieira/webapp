@@ -29,6 +29,16 @@ export type CategoryConfig = {
   enabled: boolean;
   /** Whether the detail page renders the plays panel. */
   hasPlays: boolean;
+  /**
+   * What the homepage's "secondary highlights" section means for this category.
+   *  - "recent": last 6 added (needs a real created_at signal — videogames have
+   *    Grouvee's date_added_to_collection).
+   *  - "mostPlayed": top 6 by play_count — used for boardgames where Ludopedia
+   *    doesn't expose an added-date but does track per-game play counts.
+   */
+  highlight: "recent" | "mostPlayed";
+  /** Eyebrow label shown above this category's highlight section on the home. */
+  highlightLabel: string;
 };
 
 export const CATEGORIES: CategoryConfig[] = [
@@ -41,6 +51,8 @@ export const CATEGORIES: CategoryConfig[] = [
     order: 1,
     enabled: true,
     hasPlays: true,
+    highlight: "mostPlayed",
+    highlightLabel: "Mais jogados",
   },
   {
     enum: "videogame",
@@ -51,6 +63,8 @@ export const CATEGORIES: CategoryConfig[] = [
     order: 2,
     enabled: true,
     hasPlays: false,
+    highlight: "recent",
+    highlightLabel: "Adicionados recentemente",
   },
   {
     enum: "movie",
@@ -61,6 +75,8 @@ export const CATEGORIES: CategoryConfig[] = [
     order: 3,
     enabled: false,
     hasPlays: false,
+    highlight: "recent",
+    highlightLabel: "Adicionados recentemente",
   },
   {
     enum: "series",
@@ -71,6 +87,8 @@ export const CATEGORIES: CategoryConfig[] = [
     order: 4,
     enabled: false,
     hasPlays: false,
+    highlight: "recent",
+    highlightLabel: "Adicionados recentemente",
   },
   {
     enum: "restaurant",
@@ -81,6 +99,8 @@ export const CATEGORIES: CategoryConfig[] = [
     order: 5,
     enabled: false,
     hasPlays: false,
+    highlight: "recent",
+    highlightLabel: "Adicionados recentemente",
   },
 ];
 
