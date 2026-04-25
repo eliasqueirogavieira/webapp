@@ -349,19 +349,12 @@ const OWNER_LUDOPEDIA_USER_ID = 115441;
 export function getPreviewStats() {
   const bg = getPreviewBoardgames();
   const vg = getPreviewVideogames();
-  const bgRated = bg.map((i) => i.rating).filter((r): r is number => r !== null);
-  const vgRated = vg.map((i) => i.rating).filter((r): r is number => r !== null);
-  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
-
+  const avg = (items: ItemCardData[]) => {
+    const nums = items.map((i) => i.rating).filter((r): r is number => r !== null);
+    return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+  };
   const byRating = (a: ItemCardData, b: ItemCardData) =>
     (b.rating ?? -1) - (a.rating ?? -1) || a.title.localeCompare(b.title);
-  const topBoardgames = [...bg].sort(byRating).slice(0, 6);
-  const topVideogames = [...vg].sort(byRating).slice(0, 6);
-
-  // No created_at in the CSV-backed preview either — first 6 of each list
-  // approximates "recently added".
-  const recentBoardgames = bg.slice(0, 6);
-  const recentVideogames = vg.slice(0, 6);
 
   // Fold all plays from the preview boardgames store into a flat sorted list.
   const store = loadBoardgameStore();
@@ -385,14 +378,20 @@ export function getPreviewStats() {
     .slice(0, 6);
 
   return {
-    bgCount: bg.length,
-    vgCount: vg.length,
-    bgAvg: avg(bgRated),
-    vgAvg: avg(vgRated),
-    topBoardgames,
-    topVideogames,
-    recentBoardgames,
-    recentVideogames,
+    byCategory: {
+      boardgame: {
+        count: bg.length,
+        avg: avg(bg),
+        top: [...bg].sort(byRating).slice(0, 6),
+        recent: bg.slice(0, 6),
+      },
+      videogame: {
+        count: vg.length,
+        avg: avg(vg),
+        top: [...vg].sort(byRating).slice(0, 6),
+        recent: vg.slice(0, 6),
+      },
+    },
     recentPlays,
   };
 }

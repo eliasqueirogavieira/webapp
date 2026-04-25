@@ -1,24 +1,21 @@
 import Link from "next/link";
-import { Dice5, Gamepad2 } from "lucide-react";
-import { ItemCard } from "@/components/ItemCard";
+import { ItemCard, type ItemCardData } from "@/components/ItemCard";
 import { CompactPlayRow } from "@/components/CompactPlayRow";
 import { RatingBadge } from "@/components/RatingBadge";
-import { getHomeStats } from "@/lib/data";
+import { getHomeStats, type CategoryStats } from "@/lib/data";
+import { ENABLED_CATEGORIES, type CategoryConfig } from "@/lib/categories";
 
 export const dynamic = "force-dynamic";
 
 export default async function LandingPage() {
-  const {
-    bgCount,
-    vgCount,
-    bgAvg,
-    vgAvg,
-    topBoardgames,
-    topVideogames,
-    recentBoardgames,
-    recentVideogames,
-    recentPlays,
-  } = await getHomeStats();
+  const { byCategory, recentPlays } = await getHomeStats();
+
+  const visible = ENABLED_CATEGORIES.map((c) => ({
+    config: c,
+    stats: byCategory[c.enum],
+  })).filter((x): x is { config: CategoryConfig; stats: CategoryStats } => !!x.stats);
+
+  const totalItems = visible.reduce((sum, v) => sum + v.stats.count, 0);
 
   return (
     <div className="flex flex-col">
@@ -26,37 +23,39 @@ export default async function LandingPage() {
 
       <Section eyebrow="Estatísticas" title="A coleção em números">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard label="Board games" value={bgCount} avg={bgAvg} />
-          <StatCard label="Video games" value={vgCount} avg={vgAvg} />
-          <StatCard label="Total" value={bgCount + vgCount} />
+          {visible.map(({ config, stats }) => (
+            <StatCard
+              key={config.enum}
+              label={config.label}
+              value={stats.count}
+              avg={stats.avg}
+            />
+          ))}
+          <StatCard label="Total" value={totalItems} />
         </div>
       </Section>
 
-      <Section
-        eyebrow="Mais bem avaliados"
-        title="Board games"
-        href="/boardgames"
-        cta="Ver todos"
-      >
-        <CardRow items={topBoardgames} />
-      </Section>
+      {visible.map(({ config, stats }) => (
+        <Section
+          key={`top-${config.enum}`}
+          eyebrow="Mais bem avaliados"
+          title={config.label}
+          href={`/${config.slug}`}
+          cta="Ver todos"
+        >
+          <CardRow items={stats.top} />
+        </Section>
+      ))}
 
-      <Section
-        eyebrow="Mais bem avaliados"
-        title="Video games"
-        href="/videogames"
-        cta="Ver todos"
-      >
-        <CardRow items={topVideogames} />
-      </Section>
-
-      <Section eyebrow="Adicionados recentemente" title="Board games">
-        <CardRow items={recentBoardgames} />
-      </Section>
-
-      <Section eyebrow="Adicionados recentemente" title="Video games">
-        <CardRow items={recentVideogames} />
-      </Section>
+      {visible.map(({ config, stats }) => (
+        <Section
+          key={`recent-${config.enum}`}
+          eyebrow="Adicionados recentemente"
+          title={config.label}
+        >
+          <CardRow items={stats.recent} />
+        </Section>
+      ))}
 
       {recentPlays.length > 0 && (
         <Section eyebrow="Atividade" title="Últimas partidas">
@@ -90,7 +89,6 @@ function Hero() {
         aria-hidden
         className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[480px] w-[680px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgb(110_231_183_/_0.35),transparent_70%)] blur-2xl"
       />
-      {/* fade-out mask at the bottom so the grid melts into the next section */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-32 bg-gradient-to-b from-transparent to-[var(--background)]"
@@ -109,18 +107,23 @@ function Hero() {
           mais — sincronizado com a Ludopedia e o IGDB.
         </p>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row">
-          <Link
-            href="/boardgames"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 text-sm font-medium text-[var(--accent-fg)] transition-opacity hover:opacity-90"
-          >
-            <Dice5 size={16} /> Board games
-          </Link>
-          <Link
-            href="/videogames"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--foreground)]/15 bg-[var(--surface)]/70 px-6 text-sm font-medium text-[var(--foreground)] backdrop-blur transition-colors hover:border-[var(--foreground)]/40 hover:bg-[var(--surface)]"
-          >
-            <Gamepad2 size={16} /> Video games
-          </Link>
+          {ENABLED_CATEGORIES.map((c, idx) => {
+            const Icon = c.icon;
+            const primary = idx === 0;
+            return (
+              <Link
+                key={c.slug}
+                href={`/${c.slug}`}
+                className={
+                  primary
+                    ? "inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 text-sm font-medium text-[var(--accent-fg)] transition-opacity hover:opacity-90"
+                    : "inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--foreground)]/15 bg-[var(--surface)]/70 px-6 text-sm font-medium text-[var(--foreground)] backdrop-blur transition-colors hover:border-[var(--foreground)]/40 hover:bg-[var(--surface)]"
+                }
+              >
+                <Icon size={16} /> {c.label}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -165,7 +168,7 @@ function Section({
   );
 }
 
-function CardRow({ items }: { items: { id: string; category: "boardgame" | "videogame" | "movie" | "series" | "restaurant"; title: string; year: number | null; cover_url: string | null; rating: number | null }[] }) {
+function CardRow({ items }: { items: ItemCardData[] }) {
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-[var(--border)] p-12 text-center text-sm text-[var(--muted)]">

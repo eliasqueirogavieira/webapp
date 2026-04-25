@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getUser, isOwner } from "@/lib/auth";
+import { ENABLED_CATEGORIES } from "@/lib/categories";
 
 /**
  * Landing layout — top nav, no sidebar. Used only on /.
@@ -31,8 +32,11 @@ function TopNav({ owner, signedIn }: { owner: boolean; signedIn: boolean }) {
           </span>
         </Link>
         <nav className="flex items-center gap-1">
-          <NavBtn href="/boardgames">Board games</NavBtn>
-          <NavBtn href="/videogames">Video games</NavBtn>
+          {ENABLED_CATEGORIES.map((c) => (
+            <NavBtn key={c.slug} href={`/${c.slug}`}>
+              {c.label}
+            </NavBtn>
+          ))}
           {owner && <NavBtn href="/add">Adicionar</NavBtn>}
           {!signedIn && <NavBtn href="/login">Entrar</NavBtn>}
         </nav>

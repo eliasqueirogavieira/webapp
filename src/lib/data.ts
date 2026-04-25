@@ -21,21 +21,24 @@ import {
 } from "./preview";
 import { createClient } from "./supabase/server";
 import type { LudopediaPartida } from "./apis/ludopedia";
+import { ENABLED_CATEGORIES, type CategoryEnum } from "./categories";
 import type { ItemCardData } from "@/components/ItemCard";
 
 export type { HomePlayRow };
 
 // ---------- types ----------
 
+/** Per-category aggregates rendered on the landing page. */
+export type CategoryStats = {
+  count: number;
+  avg: number | null;
+  top: ItemCardData[];     // top 6 by rating, desc
+  recent: ItemCardData[];  // last 6 added (by created_at)
+};
+
 export type HomeStats = {
-  bgCount: number;
-  vgCount: number;
-  bgAvg: number | null;
-  vgAvg: number | null;
-  topBoardgames: ItemCardData[];
-  topVideogames: ItemCardData[];
-  recentBoardgames: ItemCardData[];
-  recentVideogames: ItemCardData[];
+  /** Keyed by category enum; only includes categories the home page renders. */
+  byCategory: Partial<Record<CategoryEnum, CategoryStats>>;
   recentPlays: HomePlayRow[];
 };
 
@@ -234,31 +237,33 @@ const ITEM_FULL_FIELDS = `
   item_externals(source, external_id, url)
 `;
 
-export async function getBoardgames(): Promise<ItemCardData[]> {
-  if (isPreviewMode()) return getPreviewBoardgames();
+/**
+ * Generic list query for any category. Pages should call this rather than the
+ * legacy `getBoardgames()` / `getVideogames()` wrappers below.
+ */
+export async function getItemsByCategory(
+  category: CategoryEnum,
+): Promise<ItemCardData[]> {
+  if (isPreviewMode()) {
+    if (category === "boardgame") return getPreviewBoardgames();
+    if (category === "videogame") return getPreviewVideogames();
+    return []; // movies/series/restaurants — no preview data yet
+  }
   const supabase = await createClient();
   const { data } = await supabase
     .from("items")
     .select(ITEM_LIST_FIELDS)
-    .eq("category", "boardgame")
+    .eq("category", category)
     .order("rating", { ascending: false, nullsFirst: false })
     .order("title")
     .returns<ItemRow[]>();
   return (data ?? []).map(itemRowToCard);
 }
 
-export async function getVideogames(): Promise<ItemCardData[]> {
-  if (isPreviewMode()) return getPreviewVideogames();
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("items")
-    .select(ITEM_LIST_FIELDS)
-    .eq("category", "videogame")
-    .order("rating", { ascending: false, nullsFirst: false })
-    .order("title")
-    .returns<ItemRow[]>();
-  return (data ?? []).map(itemRowToCard);
-}
+// Thin per-category wrappers — kept for the homepage stats helper that needs
+// both lists at once. New code should prefer getItemsByCategory().
+export const getBoardgames = () => getItemsByCategory("boardgame");
+export const getVideogames = () => getItemsByCategory("videogame");
 
 export async function getBoardgame(slug: string): Promise<BoardgameDetail | null> {
   if (isPreviewMode()) return getPreviewBoardgame(slug);
@@ -351,70 +356,57 @@ function recentPlayRowToHome(row: RecentPlayRow): HomePlayRow {
   };
 }
 
+async function fetchCategoryStats(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  category: CategoryEnum,
+): Promise<CategoryStats> {
+  const [countQ, avgQ, topQ, recentQ] = await Promise.all([
+    supabase
+      .from("items")
+      .select("id", { count: "exact", head: true })
+      .eq("category", category),
+    supabase
+      .from("items")
+      .select("rating")
+      .eq("category", category)
+      .not("rating", "is", null)
+      .returns<Array<{ rating: number | null }>>(),
+    supabase
+      .from("items")
+      .select(ITEM_LIST_FIELDS)
+      .eq("category", category)
+      .not("rating", "is", null)
+      .order("rating", { ascending: false })
+      .limit(6)
+      .returns<ItemRow[]>(),
+    supabase
+      .from("items")
+      .select(ITEM_LIST_FIELDS)
+      .eq("category", category)
+      .order("created_at", { ascending: false })
+      .limit(6)
+      .returns<ItemRow[]>(),
+  ]);
+  const nums = (avgQ.data ?? [])
+    .map((r) => Number(r.rating))
+    .filter((n) => Number.isFinite(n));
+  const avg = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+  return {
+    count: countQ.count ?? 0,
+    avg,
+    top: (topQ.data ?? []).map(itemRowToCard),
+    recent: (recentQ.data ?? []).map(itemRowToCard),
+  };
+}
+
 export async function getHomeStats(): Promise<HomeStats> {
   if (isPreviewMode()) return getPreviewStats();
   const supabase = await createClient();
-  const [
-    bgCount,
-    vgCount,
-    bgAvgQ,
-    vgAvgQ,
-    topBg,
-    topVg,
-    recentBg,
-    recentVg,
-    recentPlaysQ,
-  ] = await Promise.all([
-    supabase
-      .from("items")
-      .select("id", { count: "exact", head: true })
-      .eq("category", "boardgame"),
-    supabase
-      .from("items")
-      .select("id", { count: "exact", head: true })
-      .eq("category", "videogame"),
-    supabase
-      .from("items")
-      .select("rating")
-      .eq("category", "boardgame")
-      .not("rating", "is", null)
-      .returns<Array<{ rating: number | null }>>(),
-    supabase
-      .from("items")
-      .select("rating")
-      .eq("category", "videogame")
-      .not("rating", "is", null)
-      .returns<Array<{ rating: number | null }>>(),
-    supabase
-      .from("items")
-      .select(ITEM_LIST_FIELDS)
-      .eq("category", "boardgame")
-      .not("rating", "is", null)
-      .order("rating", { ascending: false })
-      .limit(6)
-      .returns<ItemRow[]>(),
-    supabase
-      .from("items")
-      .select(ITEM_LIST_FIELDS)
-      .eq("category", "videogame")
-      .not("rating", "is", null)
-      .order("rating", { ascending: false })
-      .limit(6)
-      .returns<ItemRow[]>(),
-    supabase
-      .from("items")
-      .select(ITEM_LIST_FIELDS)
-      .eq("category", "boardgame")
-      .order("created_at", { ascending: false })
-      .limit(6)
-      .returns<ItemRow[]>(),
-    supabase
-      .from("items")
-      .select(ITEM_LIST_FIELDS)
-      .eq("category", "videogame")
-      .order("created_at", { ascending: false })
-      .limit(6)
-      .returns<ItemRow[]>(),
+
+  const [enabledStats, recentPlaysQ] = await Promise.all([
+    Promise.all(
+      ENABLED_CATEGORIES.map(async (c) => [c.enum, await fetchCategoryStats(supabase, c.enum)] as const),
+    ),
     supabase
       .from("plays")
       .select(
@@ -423,25 +415,13 @@ export async function getHomeStats(): Promise<HomeStats> {
       .order("played_on", { ascending: false })
       .limit(6)
       .returns<RecentPlayRow[]>(),
-  ] as const);
+  ]);
 
-  const avg = (rows: Array<{ rating: number | null }> | null) => {
-    if (!rows || rows.length === 0) return null;
-    const nums = rows.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n));
-    return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
-  };
+  const byCategory: Partial<Record<CategoryEnum, CategoryStats>> = {};
+  for (const [cat, stats] of enabledStats) byCategory[cat] = stats;
 
-  // The 8th and 9th positions in the destructured array — recentBg and recentVg —
-  // are reused for "recentBoardgames" / "recentVideogames" below.
   return {
-    bgCount: bgCount.count ?? 0,
-    vgCount: vgCount.count ?? 0,
-    bgAvg: avg(bgAvgQ.data),
-    vgAvg: avg(vgAvgQ.data),
-    topBoardgames: (topBg.data ?? []).map(itemRowToCard),
-    topVideogames: (topVg.data ?? []).map(itemRowToCard),
-    recentBoardgames: (recentBg.data ?? []).map(itemRowToCard),
-    recentVideogames: (recentVg.data ?? []).map(itemRowToCard),
+    byCategory,
     recentPlays: (recentPlaysQ.data ?? []).map(recentPlayRowToHome),
   };
 }

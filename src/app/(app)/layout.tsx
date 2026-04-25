@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Dice5, Gamepad2, Home, LogIn, Plus } from "lucide-react";
+import { Home, LogIn, Plus } from "lucide-react";
 import { getUser, isOwner } from "@/lib/auth";
+import { ENABLED_CATEGORIES } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
 /**
@@ -38,8 +39,17 @@ function Sidebar({ owner, signedIn }: { owner: boolean; signedIn: boolean }) {
       </div>
       <nav className="flex flex-col gap-1 px-3">
         <NavLink href="/" icon={<Home size={16} />} label="Início" />
-        <NavLink href="/boardgames" icon={<Dice5 size={16} />} label="Board games" />
-        <NavLink href="/videogames" icon={<Gamepad2 size={16} />} label="Video games" />
+        {ENABLED_CATEGORIES.map((c) => {
+          const Icon = c.icon;
+          return (
+            <NavLink
+              key={c.slug}
+              href={`/${c.slug}`}
+              icon={<Icon size={16} />}
+              label={c.label}
+            />
+          );
+        })}
       </nav>
 
       <div className="mt-auto flex flex-col gap-1 px-3 pb-6">
