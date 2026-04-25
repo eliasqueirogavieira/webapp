@@ -1,0 +1,42 @@
+name: Sync Ludopedia → Supabase
+
+# Daily at 04:00 UTC (= 01:00 BRT). Also triggered on demand:
+#   - Manually from the Actions tab ("Run workflow")
+#   - From the in-app "Sincronizar agora" button (POSTs to
+#     /repos/.../actions/workflows/sync-ludopedia.yml/dispatches)
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+# A scheduled run + a manual click should never overlap.
+concurrency:
+  group: sync-ludopedia
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      LUDOPEDIA_TOKEN: ${{ secrets.LUDOPEDIA_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pull Ludopedia → data/preview-boardgames.json
+        run: npm run enrich:boardgames
+
+      - name: Upsert into Supabase
+        run: npm run seed:supabase

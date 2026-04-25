@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Home, LogIn, Plus } from "lucide-react";
 import { getUser, isOwner } from "@/lib/auth";
 import { ENABLED_CATEGORIES } from "@/lib/categories";
+import { SyncButton } from "@/components/SyncButton";
 import { cn } from "@/lib/utils";
 
 /**
@@ -53,6 +54,7 @@ function Sidebar({ owner, signedIn }: { owner: boolean; signedIn: boolean }) {
       </nav>
 
       <div className="mt-auto flex flex-col gap-1 px-3 pb-6">
+        {owner && <SyncButton />}
         {owner && <NavLink href="/add" icon={<Plus size={16} />} label="Adicionar" />}
         {!signedIn && <NavLink href="/login" icon={<LogIn size={16} />} label="Entrar" />}
       </div>

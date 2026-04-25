@@ -76,35 +76,66 @@ After signup + owner registration, `/add` is available in the sidebar. Search by
 
 Add your Vercel URL to Supabase *Authentication → URL Configuration → Site URL* and *Redirect URLs* so Google OAuth works in prod.
 
+## Sync (Ludopedia → Supabase)
+
+Two ways the database stays current with what you change on Ludopedia
+(ratings, plays, new games):
+
+- **Daily cron** — `.github/workflows/sync-ludopedia.yml` runs at
+  04:00 UTC (= 01:00 BRT). It executes `npm run enrich:boardgames`
+  (pulls `/colecao` + `/jogos/{id}` + `/partidas`) and then
+  `npm run seed:supabase` (idempotent upsert).
+- **"Sincronizar agora" sidebar button** — owner-only. Posts to
+  `/api/sync`, which dispatches the same workflow on demand. The
+  button shows a "Iniciado · ver no GitHub" link to the run.
+
+### Setup (one-time)
+
+1. **GitHub repo secrets** (`Settings → Secrets and variables → Actions`):
+   - `LUDOPEDIA_TOKEN`
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+2. **GitHub PAT for the in-app button** (`github.com/settings/tokens`):
+   fine-grained token scoped to `eliasqueirogavieira/webapp` with
+   `Actions: Read and write`. Save as `GH_DISPATCH_TOKEN` in Vercel
+   env vars.
+
 ## Project layout
 
 ```
+.github/workflows/
+  sync-ludopedia.yml      Daily cron + workflow_dispatch sync
 src/
-  app/              App Router pages
-    page.tsx        Homepage (bento)
-    boardgames/     List + detail
-    videogames/     List + detail
-    add/            (auth) search BGG/IGDB and add
-    login/          Google OAuth + magic link
-    auth/callback/  OAuth return handler
-  components/       RatingBadge, ItemCard, ItemGrid, BentoTile
+  app/
+    layout.tsx            Root html/body shell only
+    (landing)/            Home page (no sidebar)
+    (app)/                Sidebar layout + every other route
+      boardgames/         List + detail + plays
+      videogames/         List + detail
+      login/, add/, auth/
+    api/sync/route.ts     Owner-gated workflow_dispatch trigger
+  components/             ItemCard, StarRating, PlaysPanel, SyncButton, …
   lib/
-    supabase/       SSR + browser + admin clients
-    apis/           BGG, IGDB wrappers
-    ratings.ts      Rating scale conversions
-    auth.ts         Owner check
+    categories.ts         Single source of truth for categories
+    data.ts               Unified loaders (preview ↔ Supabase)
+    preview.ts            JSON-backed preview path
+    supabase/             SSR + browser + admin clients
+    apis/                 IGDB, Ludopedia, BGG wrappers
+    ratings.ts            Rating scale conversions
+    auth.ts               Owner check
 scripts/
-  import-bgg.ts     BGG CSV importer
-  import-grouvee.ts Grouvee CSV importer
-supabase/
-  migrations/       Schema + RLS policies
-data/               Your CSV exports (gitignored)
+  enrich-ludopedia.ts     Pulls Ludopedia → preview-boardgames.json
+  enrich-preview.ts       Pulls IGDB → preview-covers.json
+  import-grouvee.ts       Legacy Grouvee CSV importer (Supabase direct)
+  seed-supabase.ts        One-shot seed from local JSONs into Supabase
+supabase/migrations/      Schema + RLS policies
+data/                     Local JSON caches + Grouvee CSV (gitignored)
 ```
 
 ## Future
 
 - Movies + series (TMDB API, same polymorphic `items` table).
 - Restaurants (manual or Google Places).
-- Ludopedia integration for Brazilian editions / pricing.
+- Owner edit UI (rate / add directly from the app).
 - Filters: rating slider, player count, weight for BGG.
 - Play log (individual timestamps) if/when aggregate `play_count` feels too coarse.
