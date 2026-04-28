@@ -1,12 +1,12 @@
 name: Sync Ludopedia → Supabase
 
-# Daily at 04:00 UTC (= 01:00 BRT). Also triggered on demand:
+# Daily at 09:00 UTC (= 06:00 BRT). Also triggered on demand:
 #   - Manually from the Actions tab ("Run workflow")
 #   - From the in-app "Sincronizar agora" button (POSTs to
 #     /repos/.../actions/workflows/sync-ludopedia.yml/dispatches)
 on:
   schedule:
-    - cron: "0 4 * * *"
+    - cron: "0 9 * * *"
   workflow_dispatch:
 
 # A scheduled run + a manual click should never overlap.
