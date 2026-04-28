@@ -90,13 +90,30 @@ export function upgradeLudopediaCover(thumbUrl: string | undefined): string | un
 async function ludoFetch<T>(path: string, attempt = 0): Promise<T> {
   const token = process.env.LUDOPEDIA_TOKEN;
   if (!token) throw new Error("LUDOPEDIA_TOKEN missing in env");
-  const res = await fetch(`${BASE}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      "User-Agent": "collection-tracker/0.1",
-    },
-  });
+
+  // Retry transient network errors (Ludopedia's nginx occasionally drops
+  // connections during nightly load) with exponential backoff.
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "User-Agent": "collection-tracker/0.1",
+      },
+    });
+  } catch (err) {
+    if (attempt < 4) {
+      const wait = 2000 * 2 ** attempt;
+      console.warn(
+        `Ludopedia network error (${(err as Error).message}) — retrying in ${wait / 1000}s...`,
+      );
+      await new Promise((r) => setTimeout(r, wait));
+      return ludoFetch<T>(path, attempt + 1);
+    }
+    throw err;
+  }
+
   if (res.status === 429 && attempt < 2) {
     const body = await res.text();
     // e.g. "Acesso bloqueado. Motivo: temporary_ban. Tente novamente em 294 segundos."
@@ -104,6 +121,17 @@ async function ludoFetch<T>(path: string, attempt = 0): Promise<T> {
     const wait = (m ? Number(m[1]) : 60) * 1000 + 2000;
     console.warn(
       `Ludopedia 429 — waiting ${Math.round(wait / 1000)}s before retry...`,
+    );
+    await new Promise((r) => setTimeout(r, wait));
+    return ludoFetch<T>(path, attempt + 1);
+  }
+  // 502/503/504 — upstream gateway/timeout issues, retry with backoff.
+  // These are common on the scheduled 04:00 UTC run when Ludopedia's
+  // backend is under load.
+  if (res.status >= 500 && res.status < 600 && attempt < 4) {
+    const wait = 5000 * 2 ** attempt;
+    console.warn(
+      `Ludopedia ${res.status} — retrying in ${wait / 1000}s (attempt ${attempt + 1}/4)...`,
     );
     await new Promise((r) => setTimeout(r, wait));
     return ludoFetch<T>(path, attempt + 1);
