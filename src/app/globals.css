@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@heroui/styles";
 
 @theme inline {
   --color-background: var(--background);
@@ -22,6 +23,16 @@
   --muted: #6b6b78;
   --accent: #18181b;
   --accent-fg: #ffffff;
+
+  /* High-gamut OKLCH accents for the landing surface. */
+  --landing-glow-a: oklch(78% 0.22 145);
+  --landing-glow-b: oklch(72% 0.2 220);
+  --landing-glow-c: oklch(70% 0.25 320);
+  --landing-rating-high: oklch(78% 0.18 145);
+  --landing-rating-mid: oklch(82% 0.16 90);
+  --landing-rating-low: oklch(68% 0.14 30);
+  --landing-surface: oklch(99% 0.005 270);
+  --landing-ink: oklch(18% 0.03 270);
 }
 
 html, body {
@@ -37,4 +48,27 @@ body {
 /* subtle scrollbar */
 * {
   scrollbar-color: var(--border) transparent;
+}
+
+/* ----- View Transitions ----- */
+::view-transition-group(*) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+::view-transition-image-pair(*) {
+  animation-name: cover-morph-blur;
+}
+@keyframes cover-morph-blur {
+  30% {
+    filter: blur(2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
 }
