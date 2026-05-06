@@ -9,6 +9,7 @@ import { StatsBento } from "./StatsBento";
 import { HighlightGrid } from "./HighlightGrid";
 import { DetailDrawer } from "./DetailDrawer";
 import { RecentPlaysRail } from "./RecentPlaysRail";
+import { WishlistRail } from "./WishlistRail";
 
 export type LandingSection = {
   enum: CategoryEnum;
@@ -26,10 +27,12 @@ export function LandingHome({
   sections,
   totalItems,
   recentPlays,
+  wishlist,
 }: {
   sections: LandingSection[];
   totalItems: number;
   recentPlays: HomePlayRow[];
+  wishlist: ItemCardData[];
 }) {
   const [selected, setSelected] = useState<Selected>(null);
   const [, startTransition] = useTransition();
@@ -75,6 +78,12 @@ export function LandingHome({
           />
         </Section>
       ))}
+
+      {wishlist.length > 0 && (
+        <Section eyebrow="Lista de desejos" title="Próximos da estante">
+          <WishlistRail items={wishlist} currentYear={new Date().getFullYear()} />
+        </Section>
+      )}
 
       {recentPlays.length > 0 && (
         <Section eyebrow="Atividade" title="Últimas partidas">

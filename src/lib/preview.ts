@@ -50,6 +50,78 @@ function loadBoardgameStore(): Record<string, BoardgameRecord> {
   }
 }
 
+// BGG-side cache mirrors data/preview-bgg.json — see scripts/enrich-bgg.ts.
+type BggCachedRow = {
+  collection: {
+    id: string;
+    name: string;
+    yearpublished: number | null;
+    image: string | null;
+    thumbnail: string | null;
+    status: {
+      own: boolean;
+      wishlist: boolean;
+      wanttobuy: boolean;
+      wishlistpriority: number | null;
+    };
+    rating: number | null;
+    privateinfo: { acquisitiondate: string | null } | null;
+  };
+  thing: { id: string; name: string; year: number | null } | null;
+};
+
+function loadBggStore(): Record<string, BggCachedRow> {
+  const p = resolve(process.cwd(), "data/preview-bgg.json");
+  if (!existsSync(p)) return {};
+  try {
+    return JSON.parse(readFileSync(p, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Map BGG → board game key. We prefer Ludopedia's slug when both sources
+ * carry the same game (matched by lowercase title-token equivalence + year).
+ * BGG-only games keep their `bgg-<objectid>` slug.
+ */
+const STOPWORDS = new Set(["and", "the", "of", "a", "an", "&"]);
+function tokenSet(s: string): Set<string> {
+  return new Set(
+    s
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length > 0 && !STOPWORDS.has(t)),
+  );
+}
+function tokenSetEqual(a: string, b: string): boolean {
+  const ta = tokenSet(a);
+  const tb = tokenSet(b);
+  if (ta.size === 0 || tb.size === 0) return false;
+  for (const t of ta) if (!tb.has(t)) return false;
+  for (const t of tb) if (!ta.has(t)) return false;
+  return true;
+}
+
+/** Returns a map of `ludo-<id>` → BGG cached row when BGG matches Ludopedia. */
+function ludoToBggMatch(
+  ludo: Record<string, BoardgameRecord>,
+  bgg: Record<string, BggCachedRow>,
+): Map<string, BggCachedRow> {
+  const out = new Map<string, BggCachedRow>();
+  const ludoEntries = Object.entries(ludo);
+  for (const cached of Object.values(bgg)) {
+    const c = cached.collection;
+    const match = ludoEntries.find(
+      ([, r]) =>
+        (c.yearpublished == null || r.year == null || r.year === c.yearpublished) &&
+        tokenSetEqual(c.name, r.name),
+    );
+    if (match) out.set(`ludo-${match[1].id_jogo}`, cached);
+  }
+  return out;
+}
+
 // Video game covers produced by `npm run enrich:preview`, keyed by `grouvee-<id>`.
 // (Board game covers now ship inside data/preview-boardgames.json.)
 function loadCovers(): Record<string, string> {
@@ -223,19 +295,99 @@ function buildBoardgameDetail(key: string, r: BoardgameRecord): BoardgameDetail 
   };
 }
 
-export function getPreviewBoardgames(): ItemCardData[] {
+export function getPreviewBoardgames(
+  sort: "rating" | "acquisition" | "title" = "rating",
+): ItemCardData[] {
   const store = loadBoardgameStore();
-  const items: ItemCardData[] = Object.entries(store).map(([key, r]) => ({
-    id: key,
-    category: "boardgame",
-    title: r.name,
-    year: r.year,
-    cover_url: r.cover_url,
-    rating: r.rating,
-  }));
+  const bggStore = loadBggStore();
+  const matched = ludoToBggMatch(store, bggStore);
+  const items: ItemCardData[] = Object.entries(store)
+    // Hide pure wishlist entries from the collection list — surfaced separately.
+    .filter(([, r]) => statusFromBoardgameRecord(r) !== "wishlist")
+    .map(([key, r]) => {
+      const bgg = matched.get(key);
+      return {
+        id: key,
+        category: "boardgame" as const,
+        title: r.name,
+        year: r.year,
+        cover_url: r.cover_url,
+        rating: r.rating,
+        acquisition_date: bgg?.collection.privateinfo?.acquisitiondate ?? null,
+      };
+    });
+
+  if (sort === "acquisition") {
+    return items.sort((a, b) => {
+      const da = a.acquisition_date ?? "";
+      const db = b.acquisition_date ?? "";
+      if (da !== db) return da < db ? 1 : -1;
+      return a.title.localeCompare(b.title);
+    });
+  }
+  if (sort === "title") {
+    return items.sort((a, b) => a.title.localeCompare(b.title));
+  }
   return items.sort(
     (a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.title.localeCompare(b.title),
   );
+}
+
+/**
+ * Wishlist for the landing page: pulls from BGG cache (the source of truth
+ * for wishlist priority), falls back to Ludopedia's `wishlist` flag.
+ */
+export function getPreviewWishlist(limit = 8): ItemCardData[] {
+  const bggStore = loadBggStore();
+  const ludoStore = loadBoardgameStore();
+  const matched = ludoToBggMatch(ludoStore, bggStore);
+  const ludoSlugByBggId = new Map<string, string>();
+  for (const [slug, cached] of matched) {
+    ludoSlugByBggId.set(cached.collection.id, slug);
+  }
+
+  const fromBgg = Object.values(bggStore)
+    .filter(
+      (cached) =>
+        cached.collection.status.wishlist || cached.collection.status.wanttobuy,
+    )
+    .map((cached) => {
+      const c = cached.collection;
+      const ludoSlug = ludoSlugByBggId.get(c.id);
+      return {
+        id: ludoSlug ?? `bgg-${c.id}`,
+        category: "boardgame" as const,
+        title: c.name,
+        year: c.yearpublished,
+        cover_url: c.image ?? c.thumbnail,
+        rating: c.rating,
+        wishlist_priority: c.status.wishlistpriority,
+      };
+    });
+
+  if (fromBgg.length > 0) {
+    return fromBgg
+      .sort((a, b) => {
+        const pa = a.wishlist_priority ?? 99;
+        const pb = b.wishlist_priority ?? 99;
+        if (pa !== pb) return pa - pb;
+        return (a.year ?? 9999) - (b.year ?? 9999);
+      })
+      .slice(0, limit);
+  }
+
+  // Fallback to Ludopedia's wishlist flag if BGG cache hasn't been populated.
+  return Object.entries(ludoStore)
+    .filter(([, r]) => r.wishlist)
+    .map(([key, r]) => ({
+      id: key,
+      category: "boardgame" as const,
+      title: r.name,
+      year: r.year,
+      cover_url: r.cover_url,
+      rating: r.rating,
+    }))
+    .slice(0, limit);
 }
 
 export function getPreviewBoardgame(id: string): BoardgameDetail | null {

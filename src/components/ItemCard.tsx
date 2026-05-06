@@ -10,6 +10,10 @@ export type ItemCardData = {
   year: number | null;
   cover_url: string | null;
   rating: number | null;
+  /** ISO YYYY-MM-DD; from BGG. Drives the "Adquirido em …" chip. */
+  acquisition_date?: string | null;
+  /** 1 (most wanted) – 5; only set on wishlist items. */
+  wishlist_priority?: number | null;
 };
 
 export function ItemCard({ item, className }: { item: ItemCardData; className?: string }) {
@@ -48,10 +52,21 @@ export function ItemCard({ item, className }: { item: ItemCardData; className?: 
         <div className="line-clamp-2 text-sm font-medium leading-snug">
           {item.title}
         </div>
-        {item.year && (
-          <div className="text-xs text-[var(--muted)]">{item.year}</div>
-        )}
+        <div className="flex flex-wrap items-center gap-x-2 text-xs text-[var(--muted)]">
+          {item.year && <span>{item.year}</span>}
+          {item.acquisition_date && (
+            <span className="tabular-nums">
+              · {formatAcquired(item.acquisition_date)}
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );
+}
+
+function formatAcquired(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
 }

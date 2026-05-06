@@ -8,11 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "import:bgg": "tsx scripts/import-bgg.ts",
     "import:grouvee": "tsx scripts/import-grouvee.ts",
-    "import:all": "npm run import:bgg && npm run import:grouvee",
     "enrich:preview": "tsx scripts/enrich-preview.ts",
     "enrich:boardgames": "tsx scripts/enrich-ludopedia.ts",
+    "enrich:bgg": "tsx scripts/enrich-bgg.ts",
     "seed:supabase": "tsx scripts/seed-supabase.ts"
   },
   "dependencies": {

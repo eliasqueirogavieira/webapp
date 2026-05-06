@@ -1,11 +1,14 @@
-import { getHomeStats } from "@/lib/data";
+import { getHomeStats, getWishlist } from "@/lib/data";
 import { ENABLED_CATEGORIES } from "@/lib/categories";
 import { LandingHome, type LandingSection } from "@/components/landing/LandingHome";
 
 export const dynamic = "force-dynamic";
 
 export default async function LandingPage() {
-  const { byCategory, recentPlays } = await getHomeStats();
+  const [{ byCategory, recentPlays }, wishlist] = await Promise.all([
+    getHomeStats(),
+    getWishlist(8),
+  ]);
 
   // Strip non-serializable fields (lucide icon component) before crossing the
   // server → client boundary.
@@ -32,6 +35,7 @@ export default async function LandingPage() {
       sections={sections}
       totalItems={totalItems}
       recentPlays={recentPlays}
+      wishlist={wishlist}
     />
   );
 }

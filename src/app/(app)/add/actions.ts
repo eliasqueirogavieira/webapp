@@ -62,20 +62,18 @@ export async function addBoardgame(bggId: string): Promise<string> {
     external_id: bggId,
     url: `https://boardgamegeek.com/boardgame/${bggId}`,
   });
-  await supabase.from("boardgame_details").insert({
-    item_id: inserted.id,
-    min_players: thing.minPlayers,
-    max_players: thing.maxPlayers,
-    playing_time_min: thing.playingTimeMin,
-    weight: thing.weight,
-    bgg_rank: thing.bggRank,
-    mechanics: thing.mechanics,
-    categories: thing.categories,
-  });
-  await supabase.from("item_metadata").insert({
-    item_id: inserted.id,
-    data: thing.raw as object,
-  });
+  await supabase
+    .from("items")
+    .update({
+      min_players: thing.minPlayers,
+      max_players: thing.maxPlayers,
+      playing_time_min: thing.playingTimeMin,
+      weight: thing.weight,
+      bgg_rank: thing.bggRank,
+      mechanics: thing.mechanics,
+      designers: thing.designers,
+    })
+    .eq("id", inserted.id);
 
   revalidatePath("/boardgames");
   revalidatePath("/");
@@ -122,19 +120,17 @@ export async function addVideogame(igdbId: string): Promise<string> {
     external_id: igdbId,
     url: null,
   });
-  await supabase.from("videogame_details").insert({
-    item_id: inserted.id,
-    platforms: game.platforms?.map((p) => p.name) ?? [],
-    genres: game.genres?.map((p) => p.name) ?? [],
-    developers,
-    publishers,
-    franchises: game.franchises?.map((f) => f.name) ?? [],
-    release_date: releaseDate,
-  });
-  await supabase.from("item_metadata").insert({
-    item_id: inserted.id,
-    data: game as unknown as object,
-  });
+  await supabase
+    .from("items")
+    .update({
+      platforms: game.platforms?.map((p) => p.name) ?? [],
+      genres: game.genres?.map((p) => p.name) ?? [],
+      developers,
+      publishers,
+      franchises: game.franchises?.map((f) => f.name) ?? [],
+      release_date: releaseDate,
+    })
+    .eq("id", inserted.id);
 
   revalidatePath("/videogames");
   revalidatePath("/");

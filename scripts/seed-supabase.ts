@@ -20,6 +20,10 @@ import { createInterface } from "node:readline/promises";
 import Papa from "papaparse";
 import { createClient } from "@supabase/supabase-js";
 import { grouveeRatingToTen } from "../src/lib/ratings";
+import type {
+  BggCollectionRow,
+  BggThing,
+} from "../src/lib/apis/bgg";
 
 // ---------- types ----------
 
@@ -377,6 +381,182 @@ type ItemPayload = {
   external_url: string | null;
 };
 
+// ---------- seed: BGG enrichment + wishlist ----------
+
+type BggCachedRow = {
+  collection: BggCollectionRow;
+  thing: BggThing | null;
+  fetched_at: string;
+};
+
+const BGG_URL = (id: string) => `https://boardgamegeek.com/boardgame/${id}`;
+
+const STOPWORDS = new Set(["and", "the", "of", "a", "an", "&"]);
+const tokens = (s: string) =>
+  new Set(
+    s
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length > 0 && !STOPWORDS.has(t)),
+  );
+
+function tokenSetEqual(a: string, b: string): boolean {
+  const ta = tokens(a);
+  const tb = tokens(b);
+  if (ta.size === 0 || tb.size === 0) return false;
+  for (const t of ta) if (!tb.has(t)) return false;
+  for (const t of tb) if (!ta.has(t)) return false;
+  return true;
+}
+
+/** Map the BGG status flags onto our items.status enum. Wishlist & wanttobuy
+ *  are treated as the same wanted-to-own state per the user's preference. */
+function statusFromBggRow(c: BggCollectionRow): string | null {
+  if (c.status.own) return "owned";
+  if (c.status.wishlist || c.status.wanttobuy || c.status.preordered) return "wishlist";
+  if (c.status.prevowned) return null; // tracked via was_owned only
+  return null;
+}
+
+function bggLastModifiedToIso(s: string | null): string | null {
+  // BGG: "YYYY-MM-DD HH:MM:SS" (UTC). Append "Z" for safety.
+  if (!s) return null;
+  const t = s.replace(" ", "T") + "Z";
+  const d = new Date(t);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+}
+
+async function seedBgg(supabase: ReturnType<typeof admin>) {
+  const path = resolve(process.cwd(), "data/preview-bgg.json");
+  if (!existsSync(path)) {
+    console.log("No data/preview-bgg.json — skipping BGG enrichment.");
+    return;
+  }
+  const store: Record<string, BggCachedRow> = JSON.parse(
+    readFileSync(path, "utf-8"),
+  );
+  const rows = Object.values(store);
+  console.log(`BGG: ${rows.length} entries.`);
+
+  // Pre-fetch all existing item titles once so we can match BGG-only rows
+  // (e.g. wishlist games not in Ludopedia) against the existing collection.
+  const { data: existingItems } = await supabase
+    .from("items")
+    .select("id, title, year")
+    .eq("category", "boardgame")
+    .returns<Array<{ id: string; title: string; year: number | null }>>();
+  const existingByTitle = (existingItems ?? []).map((it) => ({
+    ...it,
+    titleLower: it.title.toLowerCase(),
+  }));
+
+  let matched = 0;
+  let inserted = 0;
+  let updatedAcq = 0;
+  let i = 0;
+  for (const cached of rows) {
+    i++;
+    const c = cached.collection;
+    const t = cached.thing;
+
+    // 1) try to find an existing item.
+    let itemId: string | null = null;
+    const { data: viaBgg } = await supabase
+      .from("item_externals")
+      .select("item_id")
+      .eq("source", "bgg")
+      .eq("external_id", c.id)
+      .maybeSingle<{ item_id: string }>();
+    if (viaBgg?.item_id) {
+      itemId = viaBgg.item_id;
+      matched++;
+    } else {
+      const candidates = existingByTitle.filter((it) =>
+        c.yearpublished == null || it.year == null || it.year === c.yearpublished
+          ? tokenSetEqual(c.name, it.title)
+          : false,
+      );
+      if (candidates.length === 1) {
+        itemId = candidates[0].id;
+        matched++;
+      }
+    }
+
+    const status = statusFromBggRow(c);
+
+    if (!itemId) {
+      // BGG-only row. Only insert if it's a wishlist or owned entry —
+      // otherwise we'd accumulate prev-owned-but-uninteresting noise.
+      if (status !== "wishlist" && status !== "owned") continue;
+      const { data: insertedRow, error } = await supabase
+        .from("items")
+        .insert({
+          category: "boardgame",
+          title: c.name,
+          year: c.yearpublished,
+          cover_url: c.image ?? c.thumbnail,
+          rating: c.rating,
+          play_count: c.numplays,
+          status,
+          comment: c.comment,
+          min_players: t?.minPlayers ?? null,
+          max_players: t?.maxPlayers ?? null,
+          playing_time_min: t?.playingTimeMin ?? null,
+          age_min: null,
+          designers: t?.designers ?? [],
+          artists: [],
+          themes: [],
+          mechanics: t?.mechanics ?? [],
+        })
+        .select("id")
+        .single<{ id: string }>();
+      if (error || !insertedRow) throw error ?? new Error("BGG insert failed");
+      itemId = insertedRow.id;
+      inserted++;
+      // Keep our title-cache in sync so subsequent rows can match.
+      existingByTitle.push({
+        id: itemId,
+        title: c.name,
+        year: c.yearpublished,
+        titleLower: c.name.toLowerCase(),
+      });
+    }
+
+    // 2) write BGG external mapping (idempotent).
+    await supabase.from("item_externals").upsert(
+      {
+        item_id: itemId,
+        source: "bgg",
+        external_id: c.id,
+        url: BGG_URL(c.id),
+      },
+      { onConflict: "item_id,source" },
+    );
+
+    // 3) update BGG-sourced columns. NEVER overwrite Ludopedia-authored fields
+    //    (title, cover_url, cost, rating, comment) — only fill ones BGG owns.
+    const updates: Record<string, unknown> = {
+      acquisition_date: c.privateinfo?.acquisitiondate ?? null,
+      wishlist_priority: c.status.wishlist ? c.status.wishlistpriority : null,
+      weight: t?.weight ?? null,
+      bgg_rank: t?.bggRank ?? null,
+      was_owned: c.status.prevowned,
+      source_modified_at: bggLastModifiedToIso(c.status.lastmodified),
+    };
+    const { error: upErr } = await supabase
+      .from("items")
+      .update(updates)
+      .eq("id", itemId);
+    if (upErr) throw upErr;
+    if (c.privateinfo?.acquisitiondate) updatedAcq++;
+
+    process.stdout.write(`  ${i}/${rows.length} ${c.name.slice(0, 50)}\r\x1b[K`);
+  }
+  console.log(
+    `\nBGG done. matched=${matched} inserted=${inserted} acquisition_dates=${updatedAcq}.`,
+  );
+}
+
 async function upsertItem(
   supabase: ReturnType<typeof admin>,
   p: ItemPayload,
@@ -469,6 +649,7 @@ async function main() {
   }
 
   await seedBoardgames(supabase);
+  await seedBgg(supabase);
   await seedVideogames(supabase);
 
   // Final tally

@@ -14,6 +14,7 @@ import {
   getPreviewStats,
   getPreviewVideogame,
   getPreviewVideogames,
+  getPreviewWishlist,
   isPreviewMode,
   type BoardgameDetail,
   type HomePlayRow,
@@ -73,6 +74,12 @@ type ItemRow = {
   release_date: string | null;
   cost: number | null;
   created_at: string;
+  // BGG enrichment (added 2026-05).
+  acquisition_date: string | null;
+  wishlist_priority: number | null;
+  weight: number | null;
+  bgg_rank: number | null;
+  was_owned: boolean | null;
   item_externals?: ExternalRow[];
 };
 
@@ -105,6 +112,9 @@ function slugForItem(item: ItemRow): string {
   if (item.category === "boardgame") {
     const ludo = find("ludopedia");
     if (ludo) return `ludo-${ludo.external_id}`;
+    // BGG-only board games (e.g. wishlist items not in Ludopedia).
+    const bgg = find("bgg");
+    if (bgg) return `bgg-${bgg.external_id}`;
   }
   if (item.category === "videogame") {
     const igdb = find("igdb");
@@ -155,6 +165,8 @@ function itemRowToCard(row: ItemRow): ItemCardData {
     year: row.year,
     cover_url: row.cover_url,
     rating: row.rating === null ? null : Number(row.rating),
+    acquisition_date: row.acquisition_date,
+    wishlist_priority: row.wishlist_priority,
   };
 }
 
@@ -228,8 +240,11 @@ function itemRowToVideogameDetail(row: ItemRow): VideogameDetail {
 
 // ---------- public API ----------
 
-const ITEM_LIST_FIELDS =
-  "id, category, title, year, cover_url, rating, item_externals(source, external_id, url)";
+const ITEM_LIST_FIELDS = `
+  id, category, title, year, cover_url, rating,
+  acquisition_date, wishlist_priority, status,
+  item_externals(source, external_id, url)
+`;
 
 const ITEM_FULL_FIELDS = `
   id, category, title, year, cover_url, rating, play_count, status, comment,
@@ -237,29 +252,48 @@ const ITEM_FULL_FIELDS = `
   designers, artists, themes, mechanics,
   platforms, genres, developers, publishers, franchises, release_date,
   cost, created_at,
+  acquisition_date, wishlist_priority, weight, bgg_rank, was_owned,
   item_externals(source, external_id, url)
 `;
+
+export type CollectionSort = "rating" | "acquisition" | "title";
 
 /**
  * Generic list query for any category. Pages should call this rather than the
  * legacy `getBoardgames()` / `getVideogames()` wrappers below.
+ *
+ * `sort = "acquisition"` orders by acquisition_date desc, then created_at desc
+ * so games without an acquisition date still appear (sorted by import time).
  */
 export async function getItemsByCategory(
   category: CategoryEnum,
+  sort: CollectionSort = "rating",
 ): Promise<ItemCardData[]> {
   if (isPreviewMode()) {
-    if (category === "boardgame") return getPreviewBoardgames();
+    if (category === "boardgame") return getPreviewBoardgames(sort);
     if (category === "videogame") return getPreviewVideogames();
     return []; // movies/series/restaurants — no preview data yet
   }
   const supabase = await createClient();
-  const { data } = await supabase
+  let q = supabase
     .from("items")
     .select(ITEM_LIST_FIELDS)
     .eq("category", category)
-    .order("rating", { ascending: false, nullsFirst: false })
-    .order("title")
-    .returns<ItemRow[]>();
+    // Hide pure wishlist entries from the default collection list — they're
+    // surfaced separately on the landing page.
+    .neq("status", "wishlist");
+  if (sort === "acquisition") {
+    q = q
+      .order("acquisition_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+  } else if (sort === "title") {
+    q = q.order("title");
+  } else {
+    q = q
+      .order("rating", { ascending: false, nullsFirst: false })
+      .order("title");
+  }
+  const { data } = await q.returns<ItemRow[]>();
   return (data ?? []).map(itemRowToCard);
 }
 
@@ -267,6 +301,22 @@ export async function getItemsByCategory(
 // both lists at once. New code should prefer getItemsByCategory().
 export const getBoardgames = () => getItemsByCategory("boardgame");
 export const getVideogames = () => getItemsByCategory("videogame");
+
+/** Wishlisted board games surfaced on the landing page. */
+export async function getWishlist(limit = 8): Promise<ItemCardData[]> {
+  if (isPreviewMode()) return getPreviewWishlist(limit);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("items")
+    .select(ITEM_LIST_FIELDS)
+    .eq("category", "boardgame")
+    .eq("status", "wishlist")
+    .order("wishlist_priority", { ascending: true, nullsFirst: false })
+    .order("year", { ascending: true, nullsFirst: false })
+    .limit(limit)
+    .returns<ItemRow[]>();
+  return (data ?? []).map(itemRowToCard);
+}
 
 export async function getBoardgame(slug: string): Promise<BoardgameDetail | null> {
   if (isPreviewMode()) return getPreviewBoardgame(slug);

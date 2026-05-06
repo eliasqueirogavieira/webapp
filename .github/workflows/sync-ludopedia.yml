@@ -1,4 +1,4 @@
-name: Sync Ludopedia → Supabase
+name: Sync Ludopedia + BGG → Supabase
 
 # Daily at 09:00 UTC (= 06:00 BRT). Also triggered on demand:
 #   - Manually from the Actions tab ("Run workflow")
@@ -20,6 +20,9 @@ jobs:
     timeout-minutes: 20
     env:
       LUDOPEDIA_TOKEN: ${{ secrets.LUDOPEDIA_TOKEN }}
+      BGG_AUTH_TOKEN: ${{ secrets.BGG_AUTH_TOKEN }}
+      BGG_USERNAME: ${{ secrets.BGG_USERNAME }}
+      BGG_PASSWORD: ${{ secrets.BGG_PASSWORD }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
@@ -37,6 +40,9 @@ jobs:
 
       - name: Pull Ludopedia → data/preview-boardgames.json
         run: npm run enrich:boardgames
+
+      - name: Pull BGG → data/preview-bgg.json
+        run: npm run enrich:bgg
 
       - name: Upsert into Supabase
         run: npm run seed:supabase
