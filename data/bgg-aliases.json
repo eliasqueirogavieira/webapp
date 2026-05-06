@@ -1,0 +1,5 @@
+{
+  "_comment": "Manual BGG objectid → Ludopedia id_jogo overrides for cases where the matcher correctly recognizes two distinct BGG products but the user owns only one and prefers them treated as a single row. Edit by hand. Re-run seed:supabase to apply (the dedupe pre-pass picks up the mapping).",
+  "225694": 55669,
+  "230802": 46380
+}

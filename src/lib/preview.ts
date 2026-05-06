@@ -565,6 +565,33 @@ export function getPreviewStats() {
     .sort((a, b) => (bgPlayCount.get(b.id) ?? 0) - (bgPlayCount.get(a.id) ?? 0))
     .slice(0, 6);
 
+  // Boardgames "recent" rail = ordered by acquisition_date desc (from BGG
+  // cache via the matched ludo→bgg map), then by Ludopedia fetched_at.
+  const bggMatched = ludoToBggMatch(store, loadBggStore());
+  const ownedBg = Object.entries(store)
+    .filter(([, r]) => statusFromBoardgameRecord(r) !== "wishlist")
+    .map(([key, r]) => {
+      const bgg = bggMatched.get(key);
+      const acq = bgg?.collection.privateinfo?.acquisitiondate ?? "";
+      return {
+        id: key,
+        category: "boardgame" as const,
+        title: r.name,
+        year: r.year,
+        cover_url: r.cover_url,
+        rating: r.rating,
+        acquisition_date: acq || null,
+        _sortKey: acq || r.fetched_at || "",
+      };
+    });
+  const bgRecent = ownedBg
+    .sort((a, b) => (a._sortKey < b._sortKey ? 1 : a._sortKey > b._sortKey ? -1 : 0))
+    .slice(0, 6)
+    .map(({ _sortKey, ...rest }) => {
+      void _sortKey;
+      return rest;
+    });
+
   return {
     byCategory: {
       boardgame: {
@@ -572,12 +599,14 @@ export function getPreviewStats() {
         avg: avg(bg),
         top: [...bg].sort(byRating).slice(0, 6),
         highlight: bgMostPlayed,
+        recent: bgRecent,
       },
       videogame: {
         count: vg.length,
         avg: avg(vg),
         top: [...vg].sort(byRating).slice(0, 6),
         highlight: vgRecentByGrouveeDate().slice(0, 6),
+        recent: [],
       },
     },
     recentPlays,

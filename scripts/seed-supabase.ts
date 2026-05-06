@@ -396,6 +396,26 @@ type BggCachedRow = {
 
 const BGG_URL = (id: string) => `https://boardgamegeek.com/boardgame/${id}`;
 
+/** Manual BGG objectid → Ludopedia id_jogo overrides for cases where the
+ *  matcher correctly recognizes distinct BGG products but the user owns
+ *  only one and treats them as a single row (e.g. user has Decrypto: 5th
+ *  Anniversary Edition on Ludopedia, mapped to base "Decrypto" on BGG). */
+function loadBggAliases(): Map<string, string> {
+  const path = resolve(process.cwd(), "data/bgg-aliases.json");
+  if (!existsSync(path)) return new Map();
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
+    const out = new Map<string, string>();
+    for (const [k, v] of Object.entries(raw)) {
+      if (k.startsWith("_")) continue; // skip _comment etc.
+      if (typeof v === "number" || typeof v === "string") out.set(k, String(v));
+    }
+    return out;
+  } catch {
+    return new Map();
+  }
+}
+
 const STOPWORDS = new Set(["and", "the", "of", "a", "an", "&"]);
 
 /** Strip diacritics + ª/º + lowercase before tokenizing so "Edição" and
@@ -513,14 +533,17 @@ function matchBgg(
  *  items. Move the BGG external + BGG-sourced columns to the Ludopedia row
  *  and delete the BGG-only row. Triggered when the matcher gains skill
  *  (alternate names, HTML decoding, diacritic stripping) and previously
- *  unmatched rows now have a home. */
+ *  unmatched rows now have a home. Manual aliases in
+ *  data/bgg-aliases.json win against any algorithmic match. */
 async function dedupeBggOnlyItems(
   supabase: ReturnType<typeof admin>,
   store: Record<string, BggCachedRow>,
+  aliases: Map<string, string>,
 ): Promise<number> {
   type Row = BoardgameItemRef & {
     sources: string[];
     bgg_external_id: string | null;
+    ludo_external_id: string | null;
   };
   const { data } = await supabase
     .from("items")
@@ -543,6 +566,8 @@ async function dedupeBggOnlyItems(
     sources: r.item_externals.map((e) => e.source),
     bgg_external_id:
       r.item_externals.find((e) => e.source === "bgg")?.external_id ?? null,
+    ludo_external_id:
+      r.item_externals.find((e) => e.source === "ludopedia")?.external_id ?? null,
   }));
 
   // BGG-only rows we might want to merge away.
@@ -550,17 +575,27 @@ async function dedupeBggOnlyItems(
     (r) => r.sources.includes("bgg") && !r.sources.includes("ludopedia"),
   );
   // Possible merge targets (have Ludopedia, not yet linked to BGG).
-  const ludoOnly: BoardgameItemRef[] = all.filter(
+  const ludoOnly: Row[] = all.filter(
     (r) => r.sources.includes("ludopedia") && !r.sources.includes("bgg"),
   );
   if (bggOnly.length === 0 || ludoOnly.length === 0) return 0;
+
+  // Quick lookup: ludopedia external_id → row.
+  const byLudoId = new Map<string, Row>();
+  for (const r of ludoOnly) {
+    if (r.ludo_external_id) byLudoId.set(r.ludo_external_id, r);
+  }
 
   let merged = 0;
   for (const dupe of bggOnly) {
     if (!dupe.bgg_external_id) continue;
     const cached = store[`bgg-${dupe.bgg_external_id}`];
     if (!cached) continue;
-    const target = matchBgg(cached, ludoOnly);
+    // Manual alias wins over algorithmic matching.
+    const aliasLudoId = aliases.get(dupe.bgg_external_id);
+    const target = aliasLudoId
+      ? byLudoId.get(aliasLudoId) ?? null
+      : matchBgg(cached, ludoOnly);
     if (!target || target.id === dupe.id) continue;
 
     console.log(
@@ -623,19 +658,46 @@ async function seedBgg(supabase: ReturnType<typeof admin>) {
   const rows = Object.values(store);
   console.log(`BGG: ${rows.length} entries.`);
 
-  const dedupedCount = await dedupeBggOnlyItems(supabase, store);
+  const aliases = loadBggAliases();
+  if (aliases.size > 0) {
+    console.log(`  → ${aliases.size} manual alias(es) loaded from data/bgg-aliases.json`);
+  }
+
+  const dedupedCount = await dedupeBggOnlyItems(supabase, store, aliases);
   if (dedupedCount > 0) {
     console.log(`  → merged ${dedupedCount} BGG-only duplicates into Ludopedia rows.`);
   }
 
   // Pre-fetch all existing item titles once so we can match BGG-only rows
   // (e.g. wishlist games not in Ludopedia) against the existing collection.
+  // Include the ludopedia external_id so manual aliases can target rows
+  // directly, bypassing the algorithmic matcher.
+  type ExistingItem = BoardgameItemRef & { ludo_external_id: string | null };
   const { data: existingItems } = await supabase
     .from("items")
-    .select("id, title, original_title, year")
+    .select(
+      "id, title, original_title, year, item_externals(source, external_id)",
+    )
     .eq("category", "boardgame")
-    .returns<BoardgameItemRef[]>();
-  const existing: BoardgameItemRef[] = existingItems ?? [];
+    .returns<
+      Array<
+        BoardgameItemRef & {
+          item_externals: Array<{ source: string; external_id: string }>;
+        }
+      >
+    >();
+  const existing: ExistingItem[] = (existingItems ?? []).map((r) => ({
+    id: r.id,
+    title: r.title,
+    original_title: r.original_title,
+    year: r.year,
+    ludo_external_id:
+      r.item_externals.find((e) => e.source === "ludopedia")?.external_id ?? null,
+  }));
+  const byLudoId = new Map<string, ExistingItem>();
+  for (const it of existing) {
+    if (it.ludo_external_id) byLudoId.set(it.ludo_external_id, it);
+  }
 
   let matched = 0;
   let inserted = 0;
@@ -658,7 +720,10 @@ async function seedBgg(supabase: ReturnType<typeof admin>) {
       itemId = viaBgg.item_id;
       matched++;
     } else {
-      const target = matchBgg(cached, existing);
+      // Manual alias wins over the algorithmic matcher.
+      const aliasLudoId = aliases.get(c.id);
+      const aliasTarget = aliasLudoId ? byLudoId.get(aliasLudoId) ?? null : null;
+      const target = aliasTarget ?? matchBgg(cached, existing);
       if (target) {
         itemId = target.id;
         matched++;
@@ -705,6 +770,7 @@ async function seedBgg(supabase: ReturnType<typeof admin>) {
         title: c.name,
         original_title: null,
         year: c.yearpublished,
+        ludo_external_id: null,
       });
     } else {
       // Existing item — refresh the title only when this is a BGG-only row

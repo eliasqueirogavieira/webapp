@@ -19,6 +19,8 @@ export type LandingSection = {
   avg: number | null;
   top: ItemCardData[];
   highlight: ItemCardData[];
+  /** Empty when not applicable — see CategoryStats.recent in lib/data. */
+  recent: ItemCardData[];
 };
 
 type Selected = { section: string; item: ItemCardData } | null;
@@ -78,6 +80,29 @@ export function LandingHome({
           />
         </Section>
       ))}
+
+      {sections.flatMap((s) =>
+        s.recent.length > 0
+          ? [
+              <Section
+                key={`recent-${s.enum}`}
+                eyebrow="Adquiridos recentemente"
+                title={s.label}
+              >
+                <HighlightGrid
+                  section={`recent-${s.enum}`}
+                  items={s.recent}
+                  selectedKey={
+                    selected?.section === `recent-${s.enum}`
+                      ? selected.item.id
+                      : null
+                  }
+                  onSelect={(item) => select(`recent-${s.enum}`, item)}
+                />
+              </Section>,
+            ]
+          : [],
+      )}
 
       {wishlist.length > 0 && (
         <Section eyebrow="Lista de desejos" title="Próximos da estante">

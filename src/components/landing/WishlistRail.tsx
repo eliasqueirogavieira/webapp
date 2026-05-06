@@ -23,7 +23,7 @@ export function WishlistRail({
         hidden: {},
         show: { transition: { staggerChildren: 0.06 } },
       }}
-      className="-mx-6 overflow-x-auto px-6 lg:-mx-10 lg:px-10"
+      className="overflow-x-auto"
     >
       <div className="flex min-w-max gap-4 pb-4">
         {items.map((item) => {

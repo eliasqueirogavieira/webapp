@@ -38,6 +38,12 @@ export type CategoryStats = {
   /** Secondary "highlight" list: meaning depends on the category — most-played
    *  for boardgames, recently-added for videogames. See `CategoryConfig.highlight`. */
   highlight: ItemCardData[];
+  /** Recently added/acquired list. For boardgames: by acquisition_date desc
+   *  (with created_at as fallback for nulls). For videogames: by created_at
+   *  desc (which the seed primes from Grouvee's date_added_to_collection).
+   *  Empty when the existing `highlight` already represents recents (so we
+   *  don't render two near-identical sections). */
+  recent: ItemCardData[];
 };
 
 export type HomeStats = {
@@ -432,7 +438,23 @@ async function fetchCategoryStats(
           .order("created_at", { ascending: false })
           .limit(6);
 
-  const [countQ, avgQ, topQ, highlightQ] = await Promise.all([
+  // For boardgames the "highlight" is most-played, so we still want a
+  // separate "recent" rail driven by acquisition_date. For videogames the
+  // existing highlight already IS the recent list — return empty to avoid
+  // rendering a duplicate section.
+  const recentQuery =
+    category === "boardgame"
+      ? supabase
+          .from("items")
+          .select(ITEM_LIST_FIELDS)
+          .eq("category", category)
+          .neq("status", "wishlist")
+          .order("acquisition_date", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
+          .limit(6)
+      : null;
+
+  const [countQ, avgQ, topQ, highlightQ, recentQ] = await Promise.all([
     supabase
       .from("items")
       .select("id", { count: "exact", head: true })
@@ -452,6 +474,9 @@ async function fetchCategoryStats(
       .limit(6)
       .returns<ItemRow[]>(),
     highlightQuery.returns<ItemRow[]>(),
+    recentQuery
+      ? recentQuery.returns<ItemRow[]>()
+      : Promise.resolve({ data: [] as ItemRow[] }),
   ]);
   const nums = (avgQ.data ?? [])
     .map((r) => Number(r.rating))
@@ -462,6 +487,7 @@ async function fetchCategoryStats(
     avg,
     top: (topQ.data ?? []).map(itemRowToCard),
     highlight: (highlightQ.data ?? []).map(itemRowToCard),
+    recent: (recentQ.data ?? []).map(itemRowToCard),
   };
 }
 

@@ -34,8 +34,10 @@ yarn-error.log*
 .env*
 !.env.example
 
-# personal CSV exports (don't commit your data)
-/data
+# personal CSV exports + cached API payloads (don't commit your data)
+/data/*
+# ...except hand-curated config that the sync depends on
+!/data/bgg-aliases.json
 
 # Claude Code local state
 /.claude

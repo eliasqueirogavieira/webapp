@@ -24,6 +24,7 @@ export default async function LandingPage() {
         avg: stats.avg,
         top: stats.top,
         highlight: stats.highlight,
+        recent: stats.recent,
       },
     ];
   });
