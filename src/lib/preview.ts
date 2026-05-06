@@ -17,6 +17,7 @@ import type { ItemCardData } from "@/components/ItemCard";
 type BoardgameRecord = {
   id_jogo: number;
   name: string;
+  original_name?: string | null;
   year: number | null;
   cover_url: string | null;
   ludopedia_url: string | null;

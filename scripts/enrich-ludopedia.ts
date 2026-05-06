@@ -52,6 +52,10 @@ const OWNER_USER_ID = 115441;
 export type BoardgameRecord = {
   id_jogo: number;
   name: string;
+  /** Ludopedia's `nm_original` (English title for translated entries).
+   *  Used as an additional matching key against BGG primary + alternates.
+   *  Null when Ludopedia has no original title on file. */
+  original_name: string | null;
   year: number | null;
   cover_url: string | null;
   ludopedia_url: string | null;
@@ -101,6 +105,22 @@ function upgradeCover(thumbUrl: string | undefined): string | null {
   return thumbUrl.replace(/_t(\.[a-z]+)(\?.*)?$/i, "$1$2");
 }
 
+/**
+ * Ludopedia's `link` field is the canonical jogo URL whose slug is almost
+ * always the BGG English title hyphenated and lowercased — e.g.
+ * `/jogo/tainted-grail-kings-of-ruin` for the Portuguese-titled
+ * "Tainted Grail: Monarcas da Ruína". This gives us a free English-name
+ * signal to match against BGG without an extra search call.
+ */
+function originalNameFromLink(link: string | undefined): string | null {
+  if (!link) return null;
+  const m = link.match(/\/jogo\/([^/?#]+)/);
+  if (!m) return null;
+  // Don't trust the slug if it's just an integer id (rare fallback URLs).
+  if (/^\d+$/.test(m[1])) return null;
+  return m[1].replace(/-/g, " ");
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const force = args.includes("--force");
@@ -143,6 +163,11 @@ async function main() {
     const record: BoardgameRecord = {
       id_jogo: c.id_jogo,
       name: c.nm_jogo,
+      original_name:
+        detail?.nm_original?.trim() ||
+        originalNameFromLink(c.link) ||
+        existing?.original_name ||
+        null,
       year: detail?.ano_publicacao ?? null,
       cover_url: upgradeCover(c.thumb) ?? upgradeCover(detail?.thumb),
       ludopedia_url: c.link

@@ -46,6 +46,7 @@ type LudopediaPartida = {
 type BoardgameRecord = {
   id_jogo: number;
   name: string;
+  original_name?: string | null;
   year: number | null;
   cover_url: string | null;
   ludopedia_url: string | null;
@@ -160,6 +161,7 @@ async function seedBoardgames(supabase: ReturnType<typeof admin>) {
     const itemId = await upsertItem(supabase, {
       category: "boardgame",
       title: b.name,
+      original_title: b.original_name ?? null,
       year: b.year,
       cover_url: b.cover_url,
       rating: b.rating,
@@ -353,6 +355,9 @@ async function seedVideogames(supabase: ReturnType<typeof admin>) {
 type ItemPayload = {
   category: "boardgame" | "videogame" | "movie" | "series" | "restaurant";
   title: string;
+  /** English / canonical title — Ludopedia's nm_original. Used by the BGG
+   *  matcher to bridge cross-language pairs. */
+  original_title?: string | null;
   year: number | null;
   cover_url: string | null;
   rating: number | null;
@@ -452,38 +457,54 @@ function bggLastModifiedToIso(s: string | null): string | null {
 type BoardgameItemRef = {
   id: string;
   title: string;
+  original_title: string | null;
   year: number | null;
 };
 
 /** Try to find a single Ludopedia/existing item that matches a BGG row.
- *  Tries every candidate name (BGG primary + alternates) against every
- *  existing title with a year-bounded strict-equal pass first, then a
- *  Jaccard ≥ 0.6 + same-year fallback. Returns null if zero or multiple
- *  matches (defensive — never merge ambiguously). */
+ *
+ *  Tries the cross-product of BGG names (primary + alternates) against
+ *  candidate names (title + original_title). `original_title` is critical
+ *  for cross-language pairs — Ludopedia stores the English title there
+ *  for translated entries, so it usually matches BGG's primary verbatim.
+ *
+ *  Matching tiers:
+ *    1. Strict token-set equality, year ±1 (or unset on either side).
+ *    2. Jaccard ≥ 0.6, year ±1 — kept tight enough that base + same-year
+ *       expansion (which usually share ≤ 50% tokens) don't collapse.
+ *
+ *  Returns null on zero or multiple matches (defensive — never merge
+ *  ambiguously). */
 function matchBgg(
   cached: BggCachedRow,
   candidates: BoardgameItemRef[],
 ): BoardgameItemRef | null {
   const c = cached.collection;
-  const names = [c.name, ...(cached.thing?.alternateNames ?? [])];
-  const yearOk = (a: number | null, b: number | null) =>
-    a == null || b == null || a === b;
+  const bggNames = [c.name, ...(cached.thing?.alternateNames ?? [])].filter(Boolean);
+  const yearOk = (a: number | null, b: number | null) => {
+    if (a == null || b == null) return true;
+    return Math.abs(a - b) <= 1; // ±1 — Tainted Grail is 2023 (Ludo) vs 2024 (BGG)
+  };
+  const candNames = (it: BoardgameItemRef) =>
+    [it.title, it.original_title].filter((s): s is string => Boolean(s));
 
-  // Strict pass first.
+  // Strict pass.
   const strict = candidates.filter(
     (it) =>
       yearOk(it.year, c.yearpublished) &&
-      names.some((n) => tokenSetEqual(n, it.title)),
+      bggNames.some((b) => candNames(it).some((cn) => tokenSetEqual(b, cn))),
   );
   if (strict.length === 1) return strict[0];
   if (strict.length > 1) return null;
 
-  // Jaccard fallback — must have an exact-year match.
+  // Jaccard fallback — still year-gated.
   if (c.yearpublished == null) return null;
   const fuzzy = candidates.filter(
     (it) =>
-      it.year === c.yearpublished &&
-      names.some((n) => tokenSetJaccard(n, it.title) >= 0.6),
+      yearOk(it.year, c.yearpublished) &&
+      bggNames.some((b) =>
+        candNames(it).some((cn) => tokenSetJaccard(b, cn) >= 0.6),
+      ),
   );
   return fuzzy.length === 1 ? fuzzy[0] : null;
 }
@@ -503,7 +524,9 @@ async function dedupeBggOnlyItems(
   };
   const { data } = await supabase
     .from("items")
-    .select("id, title, year, item_externals(source, external_id)")
+    .select(
+      "id, title, original_title, year, item_externals(source, external_id)",
+    )
     .eq("category", "boardgame")
     .returns<
       Array<
@@ -515,6 +538,7 @@ async function dedupeBggOnlyItems(
   const all: Row[] = (data ?? []).map((r) => ({
     id: r.id,
     title: r.title,
+    original_title: r.original_title,
     year: r.year,
     sources: r.item_externals.map((e) => e.source),
     bgg_external_id:
@@ -608,7 +632,7 @@ async function seedBgg(supabase: ReturnType<typeof admin>) {
   // (e.g. wishlist games not in Ludopedia) against the existing collection.
   const { data: existingItems } = await supabase
     .from("items")
-    .select("id, title, year")
+    .select("id, title, original_title, year")
     .eq("category", "boardgame")
     .returns<BoardgameItemRef[]>();
   const existing: BoardgameItemRef[] = existingItems ?? [];
@@ -642,11 +666,14 @@ async function seedBgg(supabase: ReturnType<typeof admin>) {
     }
 
     const status = statusFromBggRow(c);
+    const isBggOnlyInteresting =
+      c.status.own || c.status.wishlist || c.status.wanttobuy || c.status.prevowned;
 
     if (!itemId) {
-      // BGG-only row. Only insert if it's a wishlist or owned entry —
-      // otherwise we'd accumulate prev-owned-but-uninteresting noise.
-      if (status !== "wishlist" && status !== "owned") continue;
+      // BGG-only row. Insert if owned / wishlist / want-to-buy / prev-owned
+      // so the user's full BGG collection is represented. Other states
+      // (e.g. for-trade alone) we skip to avoid noise.
+      if (!isBggOnlyInteresting) continue;
       const { data: insertedRow, error } = await supabase
         .from("items")
         .insert({
@@ -676,8 +703,30 @@ async function seedBgg(supabase: ReturnType<typeof admin>) {
       existing.push({
         id: itemId,
         title: c.name,
+        original_title: null,
         year: c.yearpublished,
       });
+    } else {
+      // Existing item — refresh the title only when this is a BGG-only row
+      // (no Ludopedia external). Catches stale HTML-encoded titles inserted
+      // before decodeEntities was wired up. If a Ludopedia external exists,
+      // its title is authoritative and we leave it untouched.
+      const { data: srcs } = await supabase
+        .from("item_externals")
+        .select("source")
+        .eq("item_id", itemId)
+        .returns<Array<{ source: string }>>();
+      const sources = (srcs ?? []).map((s) => s.source);
+      if (sources.includes("bgg") && !sources.includes("ludopedia")) {
+        await supabase
+          .from("items")
+          .update({
+            title: c.name,
+            year: c.yearpublished,
+            cover_url: c.image ?? c.thumbnail,
+          })
+          .eq("id", itemId);
+      }
     }
 
     // 2) write BGG external mapping (idempotent).
@@ -730,6 +779,7 @@ async function upsertItem(
   const itemFields: Record<string, unknown> = {
     category: p.category,
     title: p.title,
+    original_title: p.original_title ?? null,
     year: p.year,
     cover_url: p.cover_url,
     rating: p.rating,
