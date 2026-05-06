@@ -142,6 +142,9 @@ export async function bggSearch(query: string): Promise<BggSearchResult[]> {
 export type BggThing = {
   id: string;
   name: string;
+  /** All `<name type="alternate">` values — language editions, alternate
+   *  spellings. Used to match BGG entries to other-language sources. */
+  alternateNames: string[];
   year: number | null;
   image: string | null;
   thumbnail: string | null;
@@ -184,10 +187,11 @@ function parseThing(it: Record<string, unknown>): BggThing {
   return {
     id: String(it.id),
     name: pickPrimaryName(it.name),
+    alternateNames: pickAlternateNames(it.name),
     year: pickYear(it.yearpublished),
     image: (it.image as string) ?? null,
     thumbnail: (it.thumbnail as string) ?? null,
-    description: String(it.description ?? ""),
+    description: decodeEntities(String(it.description ?? "")),
     minPlayers: pickInt(it.minplayers),
     maxPlayers: pickInt(it.maxplayers),
     playingTimeMin: pickInt(it.playingtime),
@@ -316,32 +320,61 @@ function parseCollectionRow(it: Record<string, unknown>): BggCollectionRow {
 
 // ---- helpers --------------------------------------------------------------
 
+/**
+ * Decode HTML/XML entities. fast-xml-parser leaves numeric character refs
+ * like `&#039;` untouched, so BGG titles such as `Andromeda&#039;s Edge`
+ * arrive raw. Handles &amp; &lt; &gt; &quot; &apos; and &#NNN; / &#xHEX;.
+ */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) =>
+      String.fromCodePoint(parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
 function pickPrimaryName(name: unknown): string {
   if (Array.isArray(name)) {
     const primary = name.find(
       (n: Record<string, unknown>) => n.type === "primary",
     ) as Record<string, unknown> | undefined;
     const pick = primary ?? name[0];
-    return String(pick?.value ?? pick?._text ?? "");
+    return decodeEntities(String(pick?.value ?? pick?._text ?? ""));
   }
   if (typeof name === "object" && name !== null) {
     const n = name as Record<string, unknown>;
-    return String(n.value ?? n._text ?? "");
+    return decodeEntities(String(n.value ?? n._text ?? ""));
   }
   return "";
+}
+
+/** Pull the alternate names from a /thing item — used to match across
+ *  language editions (e.g. Ludopedia's "Twilight Imperium (4ª Edição)" maps
+ *  to the BGG alternate "Twilight Imperium: Quarta Edição"). */
+function pickAlternateNames(name: unknown): string[] {
+  if (!Array.isArray(name)) return [];
+  return (name as Array<Record<string, unknown>>)
+    .filter((n) => n.type === "alternate")
+    .map((n) => decodeEntities(String(n.value ?? n._text ?? "")))
+    .filter(Boolean);
 }
 
 /** /collection emits `<name sortindex="1">Title</name>` (text child, no value attr). */
 function pickCollectionName(name: unknown): string {
   if (Array.isArray(name)) {
     const first = name[0] as Record<string, unknown> | undefined;
-    return String(first?._text ?? first?.value ?? "");
+    return decodeEntities(String(first?._text ?? first?.value ?? ""));
   }
   if (typeof name === "object" && name !== null) {
     const n = name as Record<string, unknown>;
-    return String(n._text ?? n.value ?? "");
+    return decodeEntities(String(n._text ?? n.value ?? ""));
   }
-  return typeof name === "string" ? name : "";
+  return typeof name === "string" ? decodeEntities(name) : "";
 }
 
 function pickInt(v: unknown): number | null {
@@ -374,11 +407,11 @@ function pickYear(v: unknown): number | null {
 
 function pickText(v: unknown): string | null {
   if (v === null || v === undefined) return null;
-  if (typeof v === "string") return v.length ? v : null;
+  if (typeof v === "string") return v.length ? decodeEntities(v) : null;
   if (typeof v === "object") {
     const obj = v as Record<string, unknown>;
     const t = obj._text ?? obj.value;
-    return typeof t === "string" && t.length ? t : null;
+    return typeof t === "string" && t.length ? decodeEntities(t) : null;
   }
   return null;
 }

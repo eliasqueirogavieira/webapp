@@ -392,10 +392,20 @@ type BggCachedRow = {
 const BGG_URL = (id: string) => `https://boardgamegeek.com/boardgame/${id}`;
 
 const STOPWORDS = new Set(["and", "the", "of", "a", "an", "&"]);
+
+/** Strip diacritics + ª/º + lowercase before tokenizing so "Edição" and
+ *  "Edicao" produce the same token set. */
+function normalize(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // strip combining diacritical marks
+    .replace(/[ªº]/g, "") // ª º (ordinal indicators)
+    .toLowerCase();
+}
+
 const tokens = (s: string) =>
   new Set(
-    s
-      .toLowerCase()
+    normalize(s)
       .split(/[^a-z0-9]+/)
       .filter((t) => t.length > 0 && !STOPWORDS.has(t)),
   );
@@ -407,6 +417,19 @@ function tokenSetEqual(a: string, b: string): boolean {
   for (const t of ta) if (!tb.has(t)) return false;
   for (const t of tb) if (!ta.has(t)) return false;
   return true;
+}
+
+/** Looser fallback: Jaccard ≥ 0.6 on token sets. Year must match exactly
+ *  for this to fire — keeps it tight enough that base + expansion of the
+ *  same year (which usually share ≤ 50% tokens) don't get merged. */
+function tokenSetJaccard(a: string, b: string): number {
+  const ta = tokens(a);
+  const tb = tokens(b);
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let inter = 0;
+  for (const t of ta) if (tb.has(t)) inter++;
+  const union = ta.size + tb.size - inter;
+  return union === 0 ? 0 : inter / union;
 }
 
 /** Map the BGG status flags onto our items.status enum. Wishlist & wanttobuy
@@ -426,6 +449,144 @@ function bggLastModifiedToIso(s: string | null): string | null {
   return Number.isFinite(d.getTime()) ? d.toISOString() : null;
 }
 
+type BoardgameItemRef = {
+  id: string;
+  title: string;
+  year: number | null;
+};
+
+/** Try to find a single Ludopedia/existing item that matches a BGG row.
+ *  Tries every candidate name (BGG primary + alternates) against every
+ *  existing title with a year-bounded strict-equal pass first, then a
+ *  Jaccard ≥ 0.6 + same-year fallback. Returns null if zero or multiple
+ *  matches (defensive — never merge ambiguously). */
+function matchBgg(
+  cached: BggCachedRow,
+  candidates: BoardgameItemRef[],
+): BoardgameItemRef | null {
+  const c = cached.collection;
+  const names = [c.name, ...(cached.thing?.alternateNames ?? [])];
+  const yearOk = (a: number | null, b: number | null) =>
+    a == null || b == null || a === b;
+
+  // Strict pass first.
+  const strict = candidates.filter(
+    (it) =>
+      yearOk(it.year, c.yearpublished) &&
+      names.some((n) => tokenSetEqual(n, it.title)),
+  );
+  if (strict.length === 1) return strict[0];
+  if (strict.length > 1) return null;
+
+  // Jaccard fallback — must have an exact-year match.
+  if (c.yearpublished == null) return null;
+  const fuzzy = candidates.filter(
+    (it) =>
+      it.year === c.yearpublished &&
+      names.some((n) => tokenSetJaccard(n, it.title) >= 0.6),
+  );
+  return fuzzy.length === 1 ? fuzzy[0] : null;
+}
+
+/** Pre-pass: existing rows where BGG-only items duplicate Ludopedia-only
+ *  items. Move the BGG external + BGG-sourced columns to the Ludopedia row
+ *  and delete the BGG-only row. Triggered when the matcher gains skill
+ *  (alternate names, HTML decoding, diacritic stripping) and previously
+ *  unmatched rows now have a home. */
+async function dedupeBggOnlyItems(
+  supabase: ReturnType<typeof admin>,
+  store: Record<string, BggCachedRow>,
+): Promise<number> {
+  type Row = BoardgameItemRef & {
+    sources: string[];
+    bgg_external_id: string | null;
+  };
+  const { data } = await supabase
+    .from("items")
+    .select("id, title, year, item_externals(source, external_id)")
+    .eq("category", "boardgame")
+    .returns<
+      Array<
+        BoardgameItemRef & {
+          item_externals: Array<{ source: string; external_id: string }>;
+        }
+      >
+    >();
+  const all: Row[] = (data ?? []).map((r) => ({
+    id: r.id,
+    title: r.title,
+    year: r.year,
+    sources: r.item_externals.map((e) => e.source),
+    bgg_external_id:
+      r.item_externals.find((e) => e.source === "bgg")?.external_id ?? null,
+  }));
+
+  // BGG-only rows we might want to merge away.
+  const bggOnly = all.filter(
+    (r) => r.sources.includes("bgg") && !r.sources.includes("ludopedia"),
+  );
+  // Possible merge targets (have Ludopedia, not yet linked to BGG).
+  const ludoOnly: BoardgameItemRef[] = all.filter(
+    (r) => r.sources.includes("ludopedia") && !r.sources.includes("bgg"),
+  );
+  if (bggOnly.length === 0 || ludoOnly.length === 0) return 0;
+
+  let merged = 0;
+  for (const dupe of bggOnly) {
+    if (!dupe.bgg_external_id) continue;
+    const cached = store[`bgg-${dupe.bgg_external_id}`];
+    if (!cached) continue;
+    const target = matchBgg(cached, ludoOnly);
+    if (!target || target.id === dupe.id) continue;
+
+    console.log(
+      `  merge: BGG-only "${dupe.title}" (${dupe.year ?? "?"}) → ` +
+        `"${target.title}" (${target.year ?? "?"})`,
+    );
+
+    // 1) Move the BGG external onto the Ludopedia row.
+    await supabase
+      .from("item_externals")
+      .delete()
+      .eq("item_id", dupe.id)
+      .eq("source", "bgg");
+    await supabase.from("item_externals").upsert(
+      {
+        item_id: target.id,
+        source: "bgg",
+        external_id: dupe.bgg_external_id,
+        url: BGG_URL(dupe.bgg_external_id),
+      },
+      { onConflict: "item_id,source" },
+    );
+    // 2) Copy any BGG-only columns the dupe has but the target lacks.
+    const { data: dupeRow } = await supabase
+      .from("items")
+      .select(
+        "acquisition_date, wishlist_priority, weight, bgg_rank, was_owned, source_modified_at",
+      )
+      .eq("id", dupe.id)
+      .maybeSingle<{
+        acquisition_date: string | null;
+        wishlist_priority: number | null;
+        weight: number | null;
+        bgg_rank: number | null;
+        was_owned: boolean | null;
+        source_modified_at: string | null;
+      }>();
+    if (dupeRow) {
+      await supabase.from("items").update(dupeRow).eq("id", target.id);
+    }
+    // 3) Delete the duplicate row.
+    await supabase.from("items").delete().eq("id", dupe.id);
+    merged++;
+    // Keep the in-memory ludoOnly list in sync (target is now bgg-linked).
+    const idx = ludoOnly.findIndex((l) => l.id === target.id);
+    if (idx >= 0) ludoOnly.splice(idx, 1);
+  }
+  return merged;
+}
+
 async function seedBgg(supabase: ReturnType<typeof admin>) {
   const path = resolve(process.cwd(), "data/preview-bgg.json");
   if (!existsSync(path)) {
@@ -438,17 +599,19 @@ async function seedBgg(supabase: ReturnType<typeof admin>) {
   const rows = Object.values(store);
   console.log(`BGG: ${rows.length} entries.`);
 
+  const dedupedCount = await dedupeBggOnlyItems(supabase, store);
+  if (dedupedCount > 0) {
+    console.log(`  → merged ${dedupedCount} BGG-only duplicates into Ludopedia rows.`);
+  }
+
   // Pre-fetch all existing item titles once so we can match BGG-only rows
   // (e.g. wishlist games not in Ludopedia) against the existing collection.
   const { data: existingItems } = await supabase
     .from("items")
     .select("id, title, year")
     .eq("category", "boardgame")
-    .returns<Array<{ id: string; title: string; year: number | null }>>();
-  const existingByTitle = (existingItems ?? []).map((it) => ({
-    ...it,
-    titleLower: it.title.toLowerCase(),
-  }));
+    .returns<BoardgameItemRef[]>();
+  const existing: BoardgameItemRef[] = existingItems ?? [];
 
   let matched = 0;
   let inserted = 0;
@@ -471,13 +634,9 @@ async function seedBgg(supabase: ReturnType<typeof admin>) {
       itemId = viaBgg.item_id;
       matched++;
     } else {
-      const candidates = existingByTitle.filter((it) =>
-        c.yearpublished == null || it.year == null || it.year === c.yearpublished
-          ? tokenSetEqual(c.name, it.title)
-          : false,
-      );
-      if (candidates.length === 1) {
-        itemId = candidates[0].id;
+      const target = matchBgg(cached, existing);
+      if (target) {
+        itemId = target.id;
         matched++;
       }
     }
@@ -513,12 +672,11 @@ async function seedBgg(supabase: ReturnType<typeof admin>) {
       if (error || !insertedRow) throw error ?? new Error("BGG insert failed");
       itemId = insertedRow.id;
       inserted++;
-      // Keep our title-cache in sync so subsequent rows can match.
-      existingByTitle.push({
+      // Keep our in-memory candidates in sync so subsequent rows can match.
+      existing.push({
         id: itemId,
         title: c.name,
         year: c.yearpublished,
-        titleLower: c.name.toLowerCase(),
       });
     }
 
