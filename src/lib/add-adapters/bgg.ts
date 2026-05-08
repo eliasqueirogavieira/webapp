@@ -5,17 +5,32 @@ import type { CategoryAdapter, SearchHit } from "./types";
 const SOURCE = "bgg";
 const BGG_URL = (id: string) => `https://boardgamegeek.com/boardgame/${id}`;
 
+/** Cap on hits we display + thumb-fetch. BGG /search can return hundreds;
+ *  past ~12 the user is just scrolling, and /thing scales linearly. */
+const SEARCH_LIMIT = 12;
+
 export const bggAdapter: CategoryAdapter = {
   category: "boardgame",
   source: "bgg",
   sourceLabel: "BoardGameGeek",
   async search(query: string): Promise<SearchHit[]> {
-    const hits = await bggSearch(query);
+    const hits = (await bggSearch(query)).slice(0, SEARCH_LIMIT);
+    if (hits.length === 0) return [];
+
+    // BGG /search doesn't include covers — fetch /thing in a single batched
+    // request to fill them in. Adds ~300-800ms per search but the UX win is
+    // worth it; users can spot the right edition by box art.
+    const ids = hits.map((h) => h.id);
+    const things = await bggThings(ids);
+    const coverById = new Map(
+      things.map((t) => [t.id, t.thumbnail ?? t.image ?? null]),
+    );
+
     return hits.map((h) => ({
       externalId: h.id,
       title: h.name,
       year: h.year,
-      coverUrl: null, // /search doesn't return covers; /thing does, but skip for speed
+      coverUrl: coverById.get(h.id) ?? null,
       subtitle: h.year ? String(h.year) : h.type,
     }));
   },

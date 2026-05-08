@@ -1,7 +1,13 @@
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { ensureOwnerClaim, getUser, isOwner } from "@/lib/auth";
 import { ENABLED_CATEGORIES } from "@/lib/categories";
 import { SignOutButton } from "@/components/SignOutButton";
+import { SyncButton } from "@/components/SyncButton";
+
+/** Same reason as (app)/layout: the topnav owner buttons must reflect
+ *  the current session, not a cached logged-out render. */
+export const dynamic = "force-dynamic";
 
 /**
  * Landing layout — top nav, no sidebar. Used only on /.
@@ -9,6 +15,7 @@ import { SignOutButton } from "@/components/SignOutButton";
 export default async function LandingLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  noStore();
   const user = await getUser().catch(() => null);
   if (user) await ensureOwnerClaim().catch(() => {});
   const owner = user ? await isOwner().catch(() => false) : false;
@@ -40,6 +47,7 @@ function TopNav({ owner, signedIn }: { owner: boolean; signedIn: boolean }) {
             </NavBtn>
           ))}
           {owner && <NavBtn href="/add">Adicionar</NavBtn>}
+          {owner && <SyncButton variant="topnav" />}
           {!signedIn && <NavBtn href="/login">Entrar</NavBtn>}
           {signedIn && <SignOutButton variant="topnav" />}
         </nav>

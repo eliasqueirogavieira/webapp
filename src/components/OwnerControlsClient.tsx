@@ -108,7 +108,7 @@ export function OwnerControlsClient({
 
       <div className="flex flex-col gap-2">
         <span className="text-xs uppercase tracking-wide text-[var(--muted)]">
-          Status (pode marcar mais de um)
+          Status
         </span>
         <div className="flex flex-wrap gap-1.5">
           {STATUS_OPTIONS.map((opt) => {

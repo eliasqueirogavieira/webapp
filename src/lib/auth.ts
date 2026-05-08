@@ -2,11 +2,25 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { User } from "@supabase/supabase-js";
+
+/**
+ * Dev-only auth bypass. When `DEV_AUTH_BYPASS=1` in env (server-only),
+ * pretend the request is from a signed-in owner without touching Supabase.
+ * Used for Playwright smoke tests so the sidebar/button rendering can be
+ * verified without spinning up a real session. Never enable in production.
+ */
+const DEV_BYPASS = process.env.DEV_AUTH_BYPASS === "1";
+const DEV_USER = {
+  id: "00000000-0000-0000-0000-000000000000",
+  email: "dev@local",
+} as unknown as User;
 
 /**
  * Returns the current user if signed in, else null.
  */
 export async function getUser() {
+  if (DEV_BYPASS) return DEV_USER;
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   return data.user;
@@ -18,6 +32,7 @@ export async function getUser() {
  * can read their own row, everyone else gets nothing.
  */
 export async function isOwner() {
+  if (DEV_BYPASS) return true;
   const supabase = await createClient();
   const { data } = await supabase
     .from("owner_config")
@@ -36,6 +51,7 @@ export async function isOwner() {
  * owner, or when they're already in owner_config.
  */
 export async function ensureOwnerClaim(): Promise<void> {
+  if (DEV_BYPASS) return;
   const ownerEmail = process.env.OWNER_EMAIL?.toLowerCase();
   if (!ownerEmail) return;
   const user = await getUser();
@@ -50,8 +66,10 @@ export async function ensureOwnerClaim(): Promise<void> {
 /** Server action: clears the SSR cookie session and bounces to home. */
 export async function signOut() {
   "use server";
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  if (!DEV_BYPASS) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+  }
   revalidatePath("/", "layout");
   redirect("/");
 }

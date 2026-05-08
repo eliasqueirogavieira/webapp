@@ -12,11 +12,17 @@ type Status =
 
 /**
  * Owner-only button that fires the GitHub Actions sync workflow.
- * Lives in the (app) sidebar; visibility is gated by the parent layout.
+ * Visibility is gated by the parent layout. Two visual variants for
+ * the two layouts that mount it (sidebar pill vs. topnav rounded chip).
  */
-export function SyncButton() {
+export function SyncButton({
+  variant = "sidebar",
+}: {
+  variant?: "sidebar" | "topnav";
+}) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [, startTransition] = useTransition();
+  const isTopnav = variant === "topnav";
 
   // Auto-clear success/error after 6s.
   useEffect(() => {
@@ -49,16 +55,27 @@ export function SyncButton() {
     });
   }
 
+  // Shape primitives — same content, different shell per variant.
+  const shellSidebar =
+    "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-[var(--foreground)]/80 hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] transition-colors";
+  const shellTopnav =
+    "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm text-[var(--foreground)]/80 hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] transition-colors";
+  const iconSize = isTopnav ? 14 : 16;
+
   if (status.kind === "success") {
     return (
       <a
         href={status.runsUrl}
         target="_blank"
         rel="noopener"
-        className="flex items-center gap-3 rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-500/30 hover:bg-emerald-500/15"
+        className={cn(
+          isTopnav
+            ? "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/30 hover:bg-emerald-500/15"
+            : "flex items-center gap-3 rounded-md px-3 py-2 text-sm bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/30 hover:bg-emerald-500/15",
+        )}
       >
-        <ExternalLink size={14} />
-        Iniciado · ver no GitHub
+        <ExternalLink size={iconSize} />
+        {isTopnav ? "Iniciado" : "Iniciado · ver no GitHub"}
       </a>
     );
   }
@@ -66,10 +83,14 @@ export function SyncButton() {
   if (status.kind === "error") {
     return (
       <div
-        className="flex items-center gap-3 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 ring-1 ring-red-500/30"
+        className={cn(
+          isTopnav
+            ? "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm bg-red-500/10 text-red-700 ring-1 ring-red-500/30"
+            : "flex items-center gap-3 rounded-md px-3 py-2 text-sm bg-red-500/10 text-red-700 ring-1 ring-red-500/30",
+        )}
         title={status.message}
       >
-        <RefreshCw size={14} />
+        <RefreshCw size={iconSize} />
         Erro · {status.message.slice(0, 24)}
       </div>
     );
@@ -82,17 +103,16 @@ export function SyncButton() {
       onClick={onClick}
       disabled={pending}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-[var(--foreground)]/80",
-        "hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] transition-colors",
+        isTopnav ? shellTopnav : shellSidebar,
         pending && "cursor-not-allowed opacity-70",
       )}
     >
       {pending ? (
-        <Loader2 size={16} className="animate-spin" />
+        <Loader2 size={iconSize} className="animate-spin" />
       ) : (
-        <RefreshCw size={16} />
+        <RefreshCw size={iconSize} />
       )}
-      {pending ? "Sincronizando…" : "Sincronizar agora"}
+      {pending ? "Sincronizando…" : isTopnav ? "Sincronizar" : "Sincronizar agora"}
     </button>
   );
 }

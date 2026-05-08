@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -17,7 +17,6 @@ import { createClient } from "@/lib/supabase/client";
  * app and password sign-in avoids email-rate-limit and PKCE-cookie pitfalls.
  */
 export default function LoginPage() {
-  const router = useRouter();
   const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,10 +37,12 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    // Cookies are set client-side by @supabase/ssr; refresh the route so
-    // the next server render (layout, ensureOwnerClaim) sees the session.
-    router.replace("/");
-    router.refresh();
+    // Hard navigate: tears down the React tree so Next.js's in-memory
+    // Router Cache (which would otherwise keep the pre-login RSC payload
+    // for routes the user already visited) is fully cleared. router.refresh
+    // alone only invalidates the current route, leaving stale layouts on
+    // /boardgames, /videogames, etc.
+    window.location.href = "/";
   }
 
   return (

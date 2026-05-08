@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { Home, LogIn, Plus } from "lucide-react";
 import { ensureOwnerClaim, getUser, isOwner } from "@/lib/auth";
 import { ENABLED_CATEGORIES } from "@/lib/categories";
@@ -7,12 +8,23 @@ import { SignOutButton } from "@/components/SignOutButton";
 import { cn } from "@/lib/utils";
 
 /**
+ * Force per-request rendering so the sidebar's owner-only buttons
+ * always reflect the current session — without this, Next.js caches
+ * the layout from the first (logged-out) render and reuses it. Both
+ * `dynamic = "force-dynamic"` and `noStore()` are required: the export
+ * disables route segment caching, the call disables data-cache memoization
+ * of the layout's RSC payload across navigations within the same group.
+ */
+export const dynamic = "force-dynamic";
+
+/**
  * App-shell layout — sidebar + centered content.
  * Wraps every route except the (landing) homepage.
  */
 export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  noStore();
   const user = await getUser().catch(() => null);
   if (user) await ensureOwnerClaim().catch(() => {});
   const owner = user ? await isOwner().catch(() => false) : false;
@@ -29,7 +41,11 @@ export default async function AppLayout({
 
 function Sidebar({ owner, signedIn }: { owner: boolean; signedIn: boolean }) {
   return (
-    <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)]/60 backdrop-blur-sm">
+    // sticky + h-screen so the bottom block (Sincronizar/Adicionar/Sair)
+    // stays visible while long category lists scroll. Without this the
+    // aside stretches to the page height and the bottom block sits below
+    // the viewport on routes like /boardgames.
+    <aside className="hidden md:flex sticky top-0 h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--surface)]/60 backdrop-blur-sm">
       <div className="px-6 pt-8 pb-6">
         <Link href="/" className="block leading-tight tracking-tight">
           <span className="block text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
