@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { getUser, isOwner } from "@/lib/auth";
+import { ensureOwnerClaim, getUser, isOwner } from "@/lib/auth";
 import { ENABLED_CATEGORIES } from "@/lib/categories";
+import { SignOutButton } from "@/components/SignOutButton";
 
 /**
  * Landing layout — top nav, no sidebar. Used only on /.
@@ -9,6 +10,7 @@ export default async function LandingLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await getUser().catch(() => null);
+  if (user) await ensureOwnerClaim().catch(() => {});
   const owner = user ? await isOwner().catch(() => false) : false;
 
   return (
@@ -39,6 +41,7 @@ function TopNav({ owner, signedIn }: { owner: boolean; signedIn: boolean }) {
           ))}
           {owner && <NavBtn href="/add">Adicionar</NavBtn>}
           {!signedIn && <NavBtn href="/login">Entrar</NavBtn>}
+          {signedIn && <SignOutButton variant="topnav" />}
         </nav>
       </div>
     </header>

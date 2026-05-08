@@ -12,6 +12,7 @@ const SOURCE = "igdb";
 
 export const igdbAdapter: CategoryAdapter = {
   category: "videogame",
+  source: "igdb",
   sourceLabel: "IGDB",
   async search(query: string): Promise<SearchHit[]> {
     const hits = await igdbSearch(query, 12);

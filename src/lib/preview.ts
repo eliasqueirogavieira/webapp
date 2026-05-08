@@ -190,25 +190,35 @@ function namesFromJsonMap(raw: string | undefined): string[] {
   }
 }
 
-function statusFromShelves(raw: string | undefined): string | null {
+/** True when the only status flag on an item is "wishlist" — those rows
+ *  are hidden from the main collection lists and surfaced separately. */
+function isWishlistOnly(s: string[] | null | undefined): boolean {
+  return !!s && s.length === 1 && s[0] === "wishlist";
+}
+
+function statusFromShelves(raw: string | undefined): string[] | null {
   const keys = namesFromJsonMap(raw).map((k) => k.toLowerCase());
-  if (keys.includes("played")) return "played";
-  if (keys.includes("playing") || keys.includes("backlog")) return "backlog";
-  if (keys.includes("wishlist")) return "wishlist";
-  if (keys.includes("abandoned")) return "abandoned";
-  return null;
+  const out: string[] = [];
+  if (keys.includes("played")) out.push("played");
+  if (keys.includes("playing") || keys.includes("backlog")) out.push("backlog");
+  if (keys.includes("wishlist")) out.push("wishlist");
+  if (keys.includes("abandoned")) out.push("abandoned");
+  return out.length ? out : null;
 }
 
 // --- Board games -----------------------------------------------------------
 
 export type BoardgameDetail = {
   id: string;
+  /** Supabase items.id (UUID). Empty in preview mode where items aren't
+   *  in the DB yet — owner controls are hidden in that case anyway. */
+  internal_id: string;
   title: string;
   year: number | null;
   rating: number | null;
   cover_url: string | null;
   play_count: number;
-  status: string | null;
+  status: string[] | null;
   notes: null;
   min_players: number | null;
   max_players: number | null;
@@ -226,12 +236,13 @@ export type BoardgameDetail = {
   plays: LudopediaPartida[];
 };
 
-function statusFromBoardgameRecord(r: BoardgameRecord): string | null {
-  if (r.played) return "played";
-  if (r.owned) return "owned";
-  if (r.wishlist) return "wishlist";
-  if (r.favorite) return "favorite";
-  return null;
+function statusFromBoardgameRecord(r: BoardgameRecord): string[] | null {
+  const out: string[] = [];
+  if (r.owned) out.push("owned");
+  if (r.played) out.push("played");
+  if (r.wishlist) out.push("wishlist");
+  if (r.favorite) out.push("favorite");
+  return out.length ? out : null;
 }
 
 export type PlaySummary = {
@@ -273,6 +284,7 @@ export function summarizePlays(plays: LudopediaPartida[], userId = 115441): Play
 function buildBoardgameDetail(key: string, r: BoardgameRecord): BoardgameDetail {
   return {
     id: key,
+    internal_id: "",
     title: r.name,
     year: r.year,
     rating: r.rating,
@@ -304,7 +316,7 @@ export function getPreviewBoardgames(
   const matched = ludoToBggMatch(store, bggStore);
   const items: ItemCardData[] = Object.entries(store)
     // Hide pure wishlist entries from the collection list — surfaced separately.
-    .filter(([, r]) => statusFromBoardgameRecord(r) !== "wishlist")
+    .filter(([, r]) => !isWishlistOnly(statusFromBoardgameRecord(r)))
     .map(([key, r]) => {
       const bgg = matched.get(key);
       return {
@@ -404,11 +416,13 @@ let cachedVgRows: GrouveeRow[] | null = null;
 
 export type VideogameDetail = {
   id: string;
+  /** Supabase items.id (UUID). Empty in preview mode. */
+  internal_id: string;
   title: string;
   year: number | null;
   rating: number | null;
   cover_url: string | null;
-  status: string | null;
+  status: string[] | null;
   platforms: string[];
   genres: string[];
   developers: string[];
@@ -444,6 +458,7 @@ function buildVideogameDetail(r: GrouveeRow, covers: Record<string, string>): Vi
   const id = `grouvee-${r.id}`;
   return {
     id,
+    internal_id: "",
     title: r.name,
     year: parseYear(r.release_date),
     rating: grouveeRatingToTen(r.rating),
@@ -569,7 +584,7 @@ export function getPreviewStats() {
   // cache via the matched ludo→bgg map), then by Ludopedia fetched_at.
   const bggMatched = ludoToBggMatch(store, loadBggStore());
   const ownedBg = Object.entries(store)
-    .filter(([, r]) => statusFromBoardgameRecord(r) !== "wishlist")
+    .filter(([, r]) => !isWishlistOnly(statusFromBoardgameRecord(r)))
     .map(([key, r]) => {
       const bgg = bggMatched.get(key);
       const acq = bgg?.collection.privateinfo?.acquisitiondate ?? "";

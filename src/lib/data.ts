@@ -62,7 +62,7 @@ type ItemRow = {
   cover_url: string | null;
   rating: number | null;
   play_count: number;
-  status: string | null;
+  status: string[] | null;
   comment: string | null;
   min_players: number | null;
   max_players: number | null;
@@ -176,6 +176,16 @@ function itemRowToCard(row: ItemRow): ItemCardData {
   };
 }
 
+/** Defensive: between the schema migration landing and the app being
+ *  redeployed, `status` may still come back as a plain string. Normalize
+ *  string → [string] so the UI doesn't crash mid-rollout. */
+function normalizeStatus(s: unknown): string[] | null {
+  if (s == null) return null;
+  if (Array.isArray(s)) return s as string[];
+  if (typeof s === "string") return s.length ? [s] : null;
+  return null;
+}
+
 function playRowToLudopedia(row: PlayRow): LudopediaPartida {
   return {
     id_partida: Number(row.external_id ?? row.id),
@@ -199,12 +209,13 @@ function itemRowToBoardgameDetail(row: ItemRow, plays: PlayRow[]): BoardgameDeta
   const ludo = (row.item_externals ?? []).find((e) => e.source === "ludopedia");
   return {
     id: slugForItem(row),
+    internal_id: row.id,
     title: row.title,
     year: row.year,
     rating: row.rating === null ? null : Number(row.rating),
     cover_url: row.cover_url,
     play_count: row.play_count,
-    status: row.status,
+    status: normalizeStatus(row.status),
     notes: null,
     min_players: row.min_players,
     max_players: row.max_players,
@@ -228,11 +239,12 @@ function itemRowToVideogameDetail(row: ItemRow): VideogameDetail {
   const grouvee = externals.find((e) => e.source === "grouvee");
   return {
     id: slugForItem(row),
+    internal_id: row.id,
     title: row.title,
     year: row.year,
     rating: row.rating === null ? null : Number(row.rating),
     cover_url: row.cover_url,
-    status: row.status,
+    status: normalizeStatus(row.status),
     platforms: row.platforms,
     genres: row.genres,
     developers: row.developers,
@@ -285,9 +297,11 @@ export async function getItemsByCategory(
     .from("items")
     .select(ITEM_LIST_FIELDS)
     .eq("category", category)
-    // Hide pure wishlist entries from the default collection list — they're
-    // surfaced separately on the landing page.
-    .neq("status", "wishlist");
+    // Hide entries whose ONLY status is "wishlist" from the default
+    // collection list — they're surfaced separately on the landing page.
+    // Items with multiple statuses (e.g. owned + wishlist for a deluxe
+    // upgrade) still appear here.
+    .not("status", "eq", '{"wishlist"}');
   if (sort === "acquisition") {
     q = q
       .order("acquisition_date", { ascending: false, nullsFirst: false })
@@ -316,7 +330,7 @@ export async function getWishlist(limit = 8): Promise<ItemCardData[]> {
     .from("items")
     .select(ITEM_LIST_FIELDS)
     .eq("category", "boardgame")
-    .eq("status", "wishlist")
+    .contains("status", ["wishlist"])
     .order("wishlist_priority", { ascending: true, nullsFirst: false })
     .order("year", { ascending: true, nullsFirst: false })
     .limit(limit)
@@ -448,7 +462,7 @@ async function fetchCategoryStats(
           .from("items")
           .select(ITEM_LIST_FIELDS)
           .eq("category", category)
-          .neq("status", "wishlist")
+          .not("status", "eq", '{"wishlist"}')
           .order("acquisition_date", { ascending: false, nullsFirst: false })
           .order("created_at", { ascending: false })
           .limit(6)

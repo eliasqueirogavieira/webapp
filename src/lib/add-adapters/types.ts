@@ -16,6 +16,15 @@ export type SearchHit = {
 
 export interface CategoryAdapter {
   category: CategoryEnum;
+  /**
+   * The `item_externals.source` value the adapter writes — also drives the
+   * URL slug for the item detail page (e.g. `igdb-<id>`, `bgg-<id>`).
+   * Must match a key in `SLUG_PREFIX_TO_SOURCE` reverse map in lib/data.ts.
+   */
+  source: "bgg" | "igdb" | "ludopedia" | "grouvee" | "tmdb" | "openlibrary";
+  /** URL slug prefix — usually `source`, but BGG uses `bgg` while
+   *  Ludopedia uses `ludo`. Defaults to `source` if unset. */
+  slugPrefix?: string;
   /** Shown in the search input placeholder, e.g. "Pesquisar no IGDB...". */
   sourceLabel: string;
   /** Free-form query → list of hits. Adapter handles its own rate limits

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Home, LogIn, Plus } from "lucide-react";
-import { getUser, isOwner } from "@/lib/auth";
+import { ensureOwnerClaim, getUser, isOwner } from "@/lib/auth";
 import { ENABLED_CATEGORIES } from "@/lib/categories";
 import { SyncButton } from "@/components/SyncButton";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -14,6 +14,7 @@ export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await getUser().catch(() => null);
+  if (user) await ensureOwnerClaim().catch(() => {});
   const owner = user ? await isOwner().catch(() => false) : false;
 
   return (

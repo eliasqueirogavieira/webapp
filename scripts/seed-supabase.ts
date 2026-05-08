@@ -110,21 +110,23 @@ function namesFromJsonMap(raw: string | undefined): string[] {
   }
 }
 
-function statusFromShelves(raw: string | undefined): string | null {
+function statusFromShelves(raw: string | undefined): string[] | null {
   const keys = namesFromJsonMap(raw).map((k) => k.toLowerCase());
-  if (keys.includes("played")) return "played";
-  if (keys.includes("playing") || keys.includes("backlog")) return "backlog";
-  if (keys.includes("wishlist")) return "wishlist";
-  if (keys.includes("abandoned")) return "abandoned";
-  return null;
+  const out: string[] = [];
+  if (keys.includes("played")) out.push("played");
+  if (keys.includes("playing") || keys.includes("backlog")) out.push("backlog");
+  if (keys.includes("wishlist")) out.push("wishlist");
+  if (keys.includes("abandoned")) out.push("abandoned");
+  return out.length ? out : null;
 }
 
-function statusFromBoardgame(b: BoardgameRecord): string | null {
-  if (b.played) return "played";
-  if (b.owned) return "owned";
-  if (b.wishlist) return "wishlist";
-  if (b.favorite) return "favorite";
-  return null;
+function statusFromBoardgame(b: BoardgameRecord): string[] | null {
+  const out: string[] = [];
+  if (b.owned) out.push("owned");
+  if (b.played) out.push("played");
+  if (b.wishlist) out.push("wishlist");
+  if (b.favorite) out.push("favorite");
+  return out.length ? out : null;
 }
 
 function parseYear(s: string | undefined): number | null {
@@ -362,7 +364,7 @@ type ItemPayload = {
   cover_url: string | null;
   rating: number | null;
   play_count: number;
-  status: string | null;
+  status: string[] | null;
   comment: string | null;
   min_players: number | null;
   max_players: number | null;
@@ -385,6 +387,7 @@ type ItemPayload = {
   external_source: string;
   external_url: string | null;
 };
+
 
 // ---------- seed: BGG enrichment + wishlist ----------
 
@@ -457,13 +460,16 @@ function tokenSetJaccard(a: string, b: string): number {
   return union === 0 ? 0 : inter / union;
 }
 
-/** Map the BGG status flags onto our items.status enum. Wishlist & wanttobuy
- *  are treated as the same wanted-to-own state per the user's preference. */
-function statusFromBggRow(c: BggCollectionRow): string | null {
-  if (c.status.own) return "owned";
-  if (c.status.wishlist || c.status.wanttobuy || c.status.preordered) return "wishlist";
-  if (c.status.prevowned) return null; // tracked via was_owned only
-  return null;
+/** Map the BGG status flags onto our items.status array. own + wishlist
+ *  can co-exist (e.g. you own the base game but want a deluxe edition).
+ *  Wishlist and wanttobuy are coalesced per the user's preference.
+ *  prevowned is tracked via was_owned only. */
+function statusFromBggRow(c: BggCollectionRow): string[] | null {
+  const out: string[] = [];
+  if (c.status.own) out.push("owned");
+  if (c.status.wishlist || c.status.wanttobuy || c.status.preordered)
+    out.push("wishlist");
+  return out.length ? out : null;
 }
 
 function bggLastModifiedToIso(s: string | null): string | null {

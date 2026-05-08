@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { StarRating } from "@/components/StarRating";
 import { ExternalLinks } from "@/components/ExternalLinks";
+import { OwnerControls } from "@/components/OwnerControls";
 import { getVideogame } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -61,8 +62,16 @@ export default async function VideogameDetail({
           <StarRating rating={view.rating} size="lg" />
 
           <div className="flex flex-wrap gap-2">
-            {view.status && <Pill>{translateStatus(view.status)}</Pill>}
+            {view.status?.map((s) => (
+              <Pill key={s}>{translateStatus(s)}</Pill>
+            ))}
           </div>
+
+          <OwnerControls
+            internalId={view.internal_id}
+            rating={view.rating}
+            status={view.status}
+          />
 
           {view.genres.length > 0 && <TagList title="Gêneros" tags={view.genres} />}
           {view.platforms.length > 0 && <TagList title="Plataformas" tags={view.platforms} />}

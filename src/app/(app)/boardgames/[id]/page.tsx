@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { StarRating } from "@/components/StarRating";
 import { PlaysList, PlaysSummary } from "@/components/PlaysPanel";
 import { ExternalLinks } from "@/components/ExternalLinks";
+import { OwnerControls } from "@/components/OwnerControls";
 import { getBoardgame } from "@/lib/data";
 import { summarizePlays } from "@/lib/preview";
 
@@ -39,13 +40,21 @@ export default async function BoardgameDetail({
         <StarRating rating={view.rating} size="lg" />
 
         <div className="flex flex-wrap gap-2">
-          {view.status && <Pill>{translateStatus(view.status)}</Pill>}
+          {view.status?.map((s) => (
+            <Pill key={s}>{translateStatus(s)}</Pill>
+          ))}
           {summary.total_plays > 0 && (
             <Pill>
               {summary.total_plays} {summary.total_plays === 1 ? "partida" : "partidas"}
             </Pill>
           )}
         </div>
+
+        <OwnerControls
+          internalId={view.internal_id}
+          rating={view.rating}
+          status={view.status}
+        />
       </header>
 
       <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 md:grid-cols-3">

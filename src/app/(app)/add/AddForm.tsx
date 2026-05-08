@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, type LucideIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { addItemFromAdapter, searchForCategory } from "./actions";
 import type { SearchHit } from "@/lib/add-adapters";
-import type { CategoryEnum } from "@/lib/categories";
+import { getCategoryByEnum, type CategoryEnum } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
+/** Only serializable fields — server → client. The icon + label are
+ *  resolved on the client via getCategoryByEnum() (lucide icons are
+ *  React components, which can't cross the RSC boundary). */
 export type AddTab = {
   category: CategoryEnum;
-  label: string;
-  icon: LucideIcon;
   sourceLabel: string;
 };
 
@@ -49,14 +50,15 @@ export function AddForm({ tabs }: { tabs: AddTab[] }) {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap gap-2">
         {tabs.map((t) => {
-          const Icon = t.icon;
+          const config = getCategoryByEnum(t.category);
+          const Icon = config.icon;
           return (
             <TabBtn
               key={t.category}
               active={activeCategory === t.category}
               onClick={() => switchTab(t.category)}
             >
-              <Icon size={14} /> {t.label}
+              <Icon size={14} /> {config.label}
             </TabBtn>
           );
         })}
@@ -141,9 +143,13 @@ function ResultRow({
     >
       {cover ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={cover} alt="" className="h-14 w-10 rounded object-cover" />
+        <img
+          src={cover}
+          alt=""
+          className="h-14 w-10 shrink-0 rounded border border-[var(--border)] object-cover"
+        />
       ) : (
-        <div className="h-14 w-10 rounded bg-[var(--surface-hover)]" />
+        <div className="h-14 w-10 shrink-0 rounded border border-dashed border-[var(--border)] bg-[var(--surface-hover)]" />
       )}
       <div className="flex flex-col">
         <span className="font-medium">{title}</span>

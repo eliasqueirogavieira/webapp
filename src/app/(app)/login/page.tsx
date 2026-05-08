@@ -1,38 +1,47 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+/**
+ * Single-owner email + password sign-in.
+ *
+ * The owner account must exist in Supabase Authentication first — create
+ * it once via the Supabase dashboard (Authentication → Users → Add user)
+ * with the email that matches `OWNER_EMAIL` in env. After that, signing
+ * in here triggers `ensureOwnerClaim()` in the layout, which writes the
+ * owner_config row that unlocks RLS-gated writes.
+ *
+ * No Google / magic link / OAuth flows on purpose — this is a single-user
+ * app and password sign-in avoids email-rate-limit and PKCE-cookie pitfalls.
+ */
 export default function LoginPage() {
+  const router = useRouter();
+  const params = useSearchParams();
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(params.get("error"));
   const [loading, setLoading] = useState(false);
 
-  async function signInWithGoogle() {
-    setError(null);
-    setLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) setError(error.message);
-    setLoading(false);
-  }
-
-  async function signInWithEmail(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      password,
     });
-    if (error) setError(error.message);
-    else setSent(true);
-    setLoading(false);
+    if (signInError) {
+      setError(signInError.message);
+      setLoading(false);
+      return;
+    }
+    // Cookies are set client-side by @supabase/ssr; refresh the route so
+    // the next server render (layout, ensureOwnerClaim) sees the session.
+    router.replace("/");
+    router.refresh();
   }
 
   return (
@@ -42,43 +51,33 @@ export default function LoginPage() {
         Apenas o dono pode editar a coleção. A visualização é pública.
       </p>
 
-      <button
-        onClick={signInWithGoogle}
-        disabled={loading}
-        className="flex h-11 items-center justify-center rounded-lg bg-[var(--foreground)] px-4 font-medium text-[var(--background)] hover:opacity-90 disabled:opacity-50"
-      >
-        Continuar com Google
-      </button>
-
-      <div className="flex items-center gap-3 text-xs text-[var(--muted)]">
-        <span className="h-px flex-1 bg-[var(--border)]" />
-        ou
-        <span className="h-px flex-1 bg-[var(--border)]" />
-      </div>
-
-      {sent ? (
-        <p className="text-sm text-[var(--accent)]">
-          Link mágico enviado — verifique sua caixa de entrada.
-        </p>
-      ) : (
-        <form onSubmit={signInWithEmail} className="flex flex-col gap-3">
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="voce@exemplo.com"
-            className="h-11 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="h-11 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 text-sm hover:bg-[var(--surface-hover)] disabled:opacity-50"
-          >
-            Enviar link mágico
-          </button>
-        </form>
-      )}
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <input
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="email"
+          className="h-11 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
+        />
+        <input
+          type="password"
+          required
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="senha"
+          className="h-11 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="h-11 rounded-lg bg-[var(--foreground)] px-4 text-sm font-medium text-[var(--background)] hover:opacity-90 disabled:opacity-50"
+        >
+          {loading ? "Entrando..." : "Entrar"}
+        </button>
+      </form>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
     </div>

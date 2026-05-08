@@ -7,6 +7,7 @@ const BGG_URL = (id: string) => `https://boardgamegeek.com/boardgame/${id}`;
 
 export const bggAdapter: CategoryAdapter = {
   category: "boardgame",
+  source: "bgg",
   sourceLabel: "BoardGameGeek",
   async search(query: string): Promise<SearchHit[]> {
     const hits = await bggSearch(query);
