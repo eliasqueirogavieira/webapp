@@ -1,64 +1,72 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Dice5, Gamepad2, Loader2 } from "lucide-react";
-import { addBoardgame, addVideogame, searchBgg, searchIgdb } from "./actions";
+import { Loader2, type LucideIcon } from "lucide-react";
+import { addItemFromAdapter, searchForCategory } from "./actions";
+import type { SearchHit } from "@/lib/add-adapters";
+import type { CategoryEnum } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
-type Mode = "boardgame" | "videogame";
-
-type BggHit = { id: string; name: string; year: number | null; type: string };
-type IgdbHit = {
-  id: number;
-  name: string;
-  cover?: { image_id: string };
-  first_release_date?: number;
+export type AddTab = {
+  category: CategoryEnum;
+  label: string;
+  icon: LucideIcon;
+  sourceLabel: string;
 };
 
-export function AddForm() {
-  const [mode, setMode] = useState<Mode>("boardgame");
+export function AddForm({ tabs }: { tabs: AddTab[] }) {
+  const [activeCategory, setActiveCategory] = useState<CategoryEnum>(
+    tabs[0]?.category ?? "boardgame",
+  );
   const [query, setQuery] = useState("");
-  const [bggHits, setBggHits] = useState<BggHit[]>([]);
-  const [igdbHits, setIgdbHits] = useState<IgdbHit[]>([]);
+  const [hits, setHits] = useState<SearchHit[]>([]);
   const [searching, startSearch] = useTransition();
   const [adding, startAdd] = useTransition();
+
+  const activeTab = tabs.find((t) => t.category === activeCategory) ?? tabs[0];
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
     startSearch(async () => {
-      if (mode === "boardgame") {
-        const results = await searchBgg(query);
-        setBggHits(results);
-      } else {
-        const results = await searchIgdb(query);
-        setIgdbHits(results as IgdbHit[]);
-      }
+      const results = await searchForCategory(activeCategory, query);
+      setHits(results);
     });
   }
 
-  function onPick(id: string) {
+  function onPick(externalId: string) {
     startAdd(async () => {
-      if (mode === "boardgame") await addBoardgame(id);
-      else await addVideogame(id);
+      await addItemFromAdapter(activeCategory, externalId);
     });
+  }
+
+  function switchTab(next: CategoryEnum) {
+    setActiveCategory(next);
+    setHits([]);
+    setQuery("");
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex gap-2">
-        <TabBtn active={mode === "boardgame"} onClick={() => setMode("boardgame")}>
-          <Dice5 size={14} /> Board game
-        </TabBtn>
-        <TabBtn active={mode === "videogame"} onClick={() => setMode("videogame")}>
-          <Gamepad2 size={14} /> Video game
-        </TabBtn>
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          return (
+            <TabBtn
+              key={t.category}
+              active={activeCategory === t.category}
+              onClick={() => switchTab(t.category)}
+            >
+              <Icon size={14} /> {t.label}
+            </TabBtn>
+          );
+        })}
       </div>
 
       <form onSubmit={onSearch} className="flex gap-2">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={mode === "boardgame" ? "Pesquisar no BGG..." : "Pesquisar no IGDB..."}
+          placeholder={`Pesquisar no ${activeTab?.sourceLabel ?? ""}...`}
           className="h-11 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
         />
         <button
@@ -72,35 +80,16 @@ export function AddForm() {
       </form>
 
       <div className="flex flex-col gap-2">
-        {mode === "boardgame" &&
-          bggHits.map((hit) => (
-            <ResultRow
-              key={hit.id}
-              title={hit.name}
-              subtitle={hit.year ? String(hit.year) : hit.type}
-              disabled={adding}
-              onClick={() => onPick(hit.id)}
-            />
-          ))}
-        {mode === "videogame" &&
-          igdbHits.map((hit) => (
-            <ResultRow
-              key={hit.id}
-              title={hit.name}
-              subtitle={
-                hit.first_release_date
-                  ? new Date(hit.first_release_date * 1000).getFullYear().toString()
-                  : undefined
-              }
-              cover={
-                hit.cover?.image_id
-                  ? `https://images.igdb.com/igdb/image/upload/t_thumb/${hit.cover.image_id}.jpg`
-                  : undefined
-              }
-              disabled={adding}
-              onClick={() => onPick(String(hit.id))}
-            />
-          ))}
+        {hits.map((hit) => (
+          <ResultRow
+            key={`${activeCategory}-${hit.externalId}`}
+            title={hit.title}
+            subtitle={hit.subtitle}
+            cover={hit.coverUrl ?? undefined}
+            disabled={adding}
+            onClick={() => onPick(hit.externalId)}
+          />
+        ))}
       </div>
     </div>
   );
