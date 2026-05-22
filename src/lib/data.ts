@@ -297,11 +297,12 @@ export async function getItemsByCategory(
     .from("items")
     .select(ITEM_LIST_FIELDS)
     .eq("category", category)
-    // Hide entries whose ONLY status is "wishlist" from the default
-    // collection list — they're surfaced separately on the landing page.
-    // Items with multiple statuses (e.g. owned + wishlist for a deluxe
-    // upgrade) still appear here.
-    .not("status", "eq", '{"wishlist"}');
+    // Only show items the user has actively categorized. status=null
+    // means "peeked at via /add but never saved" and shouldn't count
+    // as part of the collection. status={wishlist} alone is surfaced
+    // separately on the landing rail.
+    .not("status", "is", null)
+    .neq("status", "{wishlist}");
   if (sort === "acquisition") {
     q = q
       .order("acquisition_date", { ascending: false, nullsFirst: false })
@@ -442,6 +443,7 @@ async function fetchCategoryStats(
           .from("items")
           .select(ITEM_LIST_FIELDS)
           .eq("category", category)
+          .not("status", "is", null)
           .gt("play_count", 0)
           .order("play_count", { ascending: false })
           .limit(6)
@@ -449,6 +451,7 @@ async function fetchCategoryStats(
           .from("items")
           .select(ITEM_LIST_FIELDS)
           .eq("category", category)
+          .not("status", "is", null)
           .order("created_at", { ascending: false })
           .limit(6);
 
@@ -462,7 +465,8 @@ async function fetchCategoryStats(
           .from("items")
           .select(ITEM_LIST_FIELDS)
           .eq("category", category)
-          .not("status", "eq", '{"wishlist"}')
+          .not("status", "is", null)
+          .neq("status", "{wishlist}")
           .order("acquisition_date", { ascending: false, nullsFirst: false })
           .order("created_at", { ascending: false })
           .limit(6)
@@ -472,17 +476,22 @@ async function fetchCategoryStats(
     supabase
       .from("items")
       .select("id", { count: "exact", head: true })
-      .eq("category", category),
+      .eq("category", category)
+      // Don't count "peeked but never categorized" items as part of the
+      // collection. Aligns with all the other queries above.
+      .not("status", "is", null),
     supabase
       .from("items")
       .select("rating")
       .eq("category", category)
+      .not("status", "is", null)
       .not("rating", "is", null)
       .returns<Array<{ rating: number | null }>>(),
     supabase
       .from("items")
       .select(ITEM_LIST_FIELDS)
       .eq("category", category)
+      .not("status", "is", null)
       .not("rating", "is", null)
       .order("rating", { ascending: false })
       .limit(6)
